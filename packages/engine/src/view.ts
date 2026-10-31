@@ -1,0 +1,136 @@
+import type { CasePack, Item } from "@neo/case-schema";
+import {
+  type BoardCard,
+  type GameState,
+  type InboxMessage,
+  type Note,
+  containerOpen,
+  containerVisible,
+  itemVisible,
+  slotsOf,
+} from "./game";
+
+// What one player is allowed to see. This projection is the security boundary
+// between the engine and the client: truth, facts, character knowledge,
+// passwords, flags and evidence links never cross it.
+
+export type ItemView =
+  | { id: string; container: string; title: string; time?: string; sortAt?: string; kind: "mail"; from: string; to: string; body: string; attachments: string[] }
+  | { id: string; container: string; title: string; time?: string; sortAt?: string; kind: "document"; body: string }
+  | { id: string; container: string; title: string; time?: string; sortAt?: string; kind: "table"; columns: string[]; rows: string[][] }
+  | {
+      id: string;
+      container: string;
+      title: string;
+      time?: string;
+      sortAt?: string;
+      kind: "photo";
+      src: string;
+      caption: string;
+      alt: string;
+      exif: { author: string; takenAt: string };
+      hotspots: { id: string; label: string; x: number; y: number; w: number; h: number; minZoom: number }[];
+    }
+  | { id: string; container: string; title: string; time?: string; sortAt?: string; kind: "finding"; body: string };
+
+export interface ContainerView {
+  id: string;
+  kind: string;
+  title: string;
+  parent?: string;
+  locked: boolean;
+}
+
+export interface ContactView {
+  id: string;
+  name: string;
+  role: string;
+  channel: "voice" | "text";
+}
+
+export interface PlayerView {
+  caseId: string;
+  title: string;
+  phase: GameState["phase"];
+  act: { id: string; title: string };
+  startedAt: number | null;
+  me: { id: string; name: string; slot: string; slotLabel: string; intro: string };
+  players: { id: string; name: string; slot: string }[];
+  briefing: { title: string; text: string };
+  containers: ContainerView[];
+  items: ItemView[];
+  folder: string[];
+  contacts: ContactView[];
+  board: BoardCard[];
+  notes: Note[];
+  inbox: InboxMessage[];
+  trash: Record<string, string>; // trashed item -> its trash record, for items the player can see
+}
+
+export function toItemView(item: Item): ItemView {
+  const base = { id: item.id, container: item.container, title: item.title, time: item.time?.label, sortAt: item.time?.at };
+  switch (item.kind) {
+    case "mail":
+      return { ...base, kind: "mail", from: item.from, to: item.to, body: item.body, attachments: item.attachments };
+    case "document":
+      return { ...base, kind: "document", body: item.body };
+    case "table":
+      return { ...base, kind: "table", columns: item.columns, rows: item.rows };
+    case "photo":
+      return {
+        ...base,
+        kind: "photo",
+        src: item.src,
+        caption: item.caption,
+        alt: item.alt,
+        exif: item.exif,
+        hotspots: item.hotspots.map(({ id, label, x, y, w, h, minZoom }) => ({ id, label, x, y, w, h, minZoom })),
+      };
+    case "finding":
+      return { ...base, kind: "finding", body: item.body };
+  }
+}
+
+export function viewFor(pack: CasePack, state: GameState, playerId: string, now: number): PlayerView | null {
+  const me = state.players.find((p) => p.id === playerId);
+  if (!me) return null;
+  const mySlots = slotsOf(pack, state, playerId);
+  const slot = pack.slots.find((s) => s.id === me.slot)!;
+  const act = pack.acts.find((a) => a.id === state.act)!;
+  const playing = state.phase === "playing";
+
+  const containers: ContainerView[] = playing
+    ? pack.containers
+        .filter((c) => containerVisible(pack, state, playerId, c, now))
+        .map((c) => ({ id: c.id, kind: c.kind, title: c.title, parent: c.parent, locked: !containerOpen(pack, state, playerId, c, now) }))
+    : [];
+
+  const items = playing ? pack.items.filter((i) => itemVisible(pack, state, playerId, i, now)).map(toItemView) : [];
+  const visible = new Set(items.map((i) => i.id));
+
+  const contactIds = new Set(pack.slots.filter((s) => mySlots.includes(s.id)).flatMap((s) => s.contacts));
+  const contacts = playing
+    ? pack.characters
+        .filter((c) => contactIds.has(c.id))
+        .map((c) => ({ id: c.id, name: c.name, role: c.role, channel: c.channel }))
+    : [];
+
+  return {
+    caseId: pack.meta.id,
+    title: pack.meta.title,
+    phase: state.phase,
+    act: { id: act.id, title: act.title },
+    startedAt: state.startedAt,
+    me: { id: me.id, name: me.name, slot: me.slot, slotLabel: slot.label, intro: playing ? slot.intro : "" },
+    players: state.players.map((p) => ({ id: p.id, name: p.name, slot: p.slot })),
+    briefing: playing ? pack.briefing : { title: pack.meta.title, text: "" },
+    containers,
+    items,
+    folder: playing ? [...(state.folders.get(playerId) ?? [])] : [],
+    contacts,
+    board: [...state.board],
+    notes: [...state.notes],
+    inbox: [...(state.inbox.get(playerId) ?? [])],
+    trash: Object.fromEntries([...state.trashed].filter(([, record]) => visible.has(record))),
+  };
+}
