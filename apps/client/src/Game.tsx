@@ -6,6 +6,7 @@ import { Backdrop, Portrait, useWide } from "./Cinematic";
 import { ActTransition, CouncilBanner } from "./Collective";
 import { Debrief, Verdict } from "./Finale";
 import { buzz, flash, isMuted, play, setMuted } from "./fx";
+import { Icon } from "./Icons";
 import { ItemDetail } from "./ItemDetail";
 import { LockIcon, Padlock } from "./Padlock";
 
@@ -93,7 +94,7 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
       <span className="topbar-right">
         <SoundToggle />
         <span className="act-ribbon" key={view.act.id}>
-          {view.act.title}
+          {actLabel(view.act.id)} · {view.act.title}
         </span>
       </span>
     </header>
@@ -155,16 +156,28 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
       </main>
       <nav className="tabs" aria-label="Sections">
         <button aria-pressed={tab === "world"} onClick={() => setTab("world")}>
-          World <span className="tab-icon" aria-hidden="true">⌖</span>
+          World
+          <span className="tab-icon">
+            <Icon name="world" />
+          </span>
         </button>
         <button aria-pressed={tab === "board"} onClick={() => setTab("board")}>
-          Board{" "}
-          <span className="badge bump" key={view.board.length}>
-            {view.board.length}
+          Board
+          <span className="tab-icon">
+            <Icon name="board" />
+            {view.board.length > 0 && (
+              <span className="badge bump" key={view.board.length}>
+                {view.board.length}
+              </span>
+            )}
           </span>
         </button>
         <button aria-pressed={tab === "inbox"} onClick={() => setTab("inbox")}>
-          Inbox {view.inbox.length > 0 ? <span className="badge pulse">{view.inbox.length}</span> : <span className="tab-icon" aria-hidden="true">{"✉\uFE0E"}</span>}
+          Inbox
+          <span className="tab-icon">
+            <Icon name="inbox" />
+            {view.inbox.length > 0 && <span className="badge pulse">{view.inbox.length}</span>}
+          </span>
         </button>
       </nav>
     </div>
@@ -183,17 +196,23 @@ function Stage({ view }: { view: PlayerView }) {
   );
 }
 
-// U+FE0E asks for the text glyph, not an emoji, on phones.
-const KIND_GLYPH: Record<ItemView["kind"], string> = { mail: "✉\uFE0E", document: "§", table: "≡", photo: "◉", finding: "✦\uFE0E" };
+const KIND_ICON = { mail: "mail", document: "doc", table: "table", photo: "photo", finding: "finding" } as const;
 
 function ItemRow({ item, onOpen, index = 0 }: { item: ItemView; onOpen: (id: string) => void; index?: number }) {
   return (
     <li className="deal" style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}>
       <button className={`row-button evidence kind-${item.kind}`} onClick={() => onOpen(item.id)}>
-        <span className="glyph" aria-hidden="true">
-          {KIND_GLYPH[item.kind]}
+        {item.kind === "photo" ? (
+          <span className="thumb" aria-hidden="true" style={{ backgroundImage: `url(/${item.src})` }} />
+        ) : (
+          <span className="glyph" aria-hidden="true">
+            <Icon name={KIND_ICON[item.kind]} />
+          </span>
+        )}
+        <span className="evidence-title">
+          {item.title}
+          {item.kind === "mail" && <span className="evidence-sub">{item.from}</span>}
         </span>
-        <span className="evidence-title">{item.title}</span>
         {item.time && <span className="stamp-time">{item.time}</span>}
       </button>
     </li>
@@ -286,6 +305,7 @@ function World({
                 <span className="muted small">{c.role}</span>
               </span>
               <button className="brass" onClick={() => onCall(c.id)}>
+                <Icon name={c.channel === "voice" ? "phone" : "message"} size={16} />
                 {c.channel === "voice" ? "Call" : "Message"}
               </button>
             </li>
@@ -507,8 +527,15 @@ function SoundToggle() {
         setOff(!off);
       }}
     >
-      {off ? "🔇\uFE0E" : "🔊\uFE0E"}
+      <Icon name={off ? "mute" : "sound"} size={18} />
     </button>
   );
 }
 
+
+// "act2" → "Act II": acts read like chapters of a film.
+function actLabel(id: string) {
+  const n = Number(id.replace(/\D/g, ""));
+  const roman = ["", "I", "II", "III", "IV", "V"][n] ?? "";
+  return roman ? `Act ${roman}` : "Act";
+}
