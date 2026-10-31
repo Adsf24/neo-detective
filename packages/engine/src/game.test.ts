@@ -176,3 +176,29 @@ describe("demo start", () => {
     expect(tick(pack, state, T0)).not.toContain("verdict_requested"); // demo must not jump to the end
   });
 });
+
+describe("solo test mode", () => {
+  it("lets one player start, holding every slot's materials and contacts, with councils auto-approved", () => {
+    const state = createGame(pack);
+    apply(pack, state, { type: "join", player: "me", name: "Vic" }, T0);
+    expect(apply(pack, state, { type: "start" }, T0)).toMatchObject({ ok: false });
+    expect(apply(pack, state, { type: "start", solo: true }, T0)).toEqual({ ok: true });
+    const view = viewFor(pack, state, "me", T0)!;
+    expect(view.folder).toEqual(["note_paul", "note_password", "note_oliver", "anon_letter"]);
+    expect(view.contacts.map((c) => c.id)).toEqual(expect.arrayContaining(["marina", "oliver", "paul"]));
+    expect(ids(state, "me")).toContain("p3");
+
+    apply(pack, state, { type: "hotspot", player: "me", item: "p3", hotspot: "p3_cabinet" }, T0);
+    apply(pack, state, { type: "councilRequest", player: "me", payload: { kind: "search", container: "packing_cabinet" } }, T0);
+    expect(ids(state, "me")).toContain("original_found");
+  });
+
+  it("deals slots round-robin for two players", () => {
+    const state = createGame(pack);
+    apply(pack, state, { type: "join", player: "a", name: "A" }, T0);
+    apply(pack, state, { type: "join", player: "b", name: "B" }, T0);
+    apply(pack, state, { type: "start", solo: true }, T0);
+    expect(viewFor(pack, state, "a", T0)!.folder).toEqual(["note_paul", "note_oliver"]);
+    expect(viewFor(pack, state, "b", T0)!.folder).toEqual(["note_password", "anon_letter"]);
+  });
+});

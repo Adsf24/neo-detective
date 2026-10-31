@@ -94,6 +94,11 @@ function Room({ room }: { room: string }) {
         <button className="primary wide" onClick={() => void game.act({ type: "start", demo: isDemo() })}>
           {isDemo() ? "Start (demo: skip ahead)" : "Start the investigation"}
         </button>
+        {view.players.length < 3 && (
+          <button className="wide" onClick={() => void game.act({ type: "start", demo: isDemo(), solo: true })}>
+            Test alone — take every role
+          </button>
+        )}
         {game.error && <p className="error">{game.error}</p>}
       </main>
     );

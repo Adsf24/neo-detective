@@ -75,6 +75,7 @@ export interface Accusation {
 
 export interface GameState {
   phase: "lobby" | "playing" | "finished";
+  solo: boolean; // started below the minimum for testing: slots are dealt round-robin
   startedAt: number | null;
   act: string;
   players: Player[];
@@ -105,7 +106,7 @@ export interface GameState {
 
 export type Action =
   | { type: "join"; player: string; name: string }
-  | { type: "start"; demo?: boolean }
+  | { type: "start"; demo?: boolean; solo?: boolean }
   | { type: "unlock"; player: string; container: string; password: string }
   | { type: "open"; player: string; item: string }
   | { type: "post"; player: string; item: string; note?: string }
@@ -125,6 +126,7 @@ export type ApplyResult = { ok: true } | { ok: false; error: string };
 export function createGame(pack: CasePack): GameState {
   return {
     phase: "lobby",
+    solo: false,
     startedAt: null,
     act: pack.acts[0]!.id,
     players: [],
@@ -167,6 +169,10 @@ export function worldContext(state: GameState, now: number): ConditionContext {
 export function slotsOf(pack: CasePack, state: GameState, playerId: string): string[] {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return [];
+  if (state.solo) {
+    const i = state.players.indexOf(player);
+    return pack.slots.filter((_, idx) => idx % state.players.length === i).map((s) => s.id);
+  }
   const merged = pack.slotMerges
     .filter((m) => m.players === state.players.length && m.into === player.slot)
     .map((m) => m.from);
@@ -228,7 +234,10 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
 
   if (action.type === "start") {
     if (state.phase !== "lobby") return fail("Already started.");
-    if (state.players.length < pack.meta.players.min) return fail(`Need at least ${pack.meta.players.min} players.`);
+    if (state.players.length < pack.meta.players.min && !action.solo) {
+      return fail(`Need at least ${pack.meta.players.min} players.`);
+    }
+    state.solo = state.players.length < pack.meta.players.min;
     state.phase = "playing";
     state.startedAt = now;
     for (const p of state.players) {
@@ -321,8 +330,18 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
       if (state.councils.some((c) => c.status === "open" && c.requestedBy === action.player)) {
         return fail("You already have a request waiting for a second detective.");
       }
-      if (state.players.length < 2) return fail("A second detective is needed.");
-      state.councils.push({ id: nextId(state, "c"), irreversible: irreversible.id, requestedBy: action.player, payload: action.payload, status: "open", at: now });
+      // Playing alone there is nobody to ask: the move goes ahead.
+      const alone = state.players.length < 2;
+      state.councils.push({
+        id: nextId(state, "c"),
+        irreversible: irreversible.id,
+        requestedBy: action.player,
+        payload: action.payload,
+        status: alone ? "approved" : "open",
+        decidedBy: alone ? action.player : undefined,
+        at: now,
+      });
+      if (alone && action.payload.kind === "search") state.approved.add(irreversible.id);
       log(state, now, "council_request", action.player, { irreversible: irreversible.id });
       return { ok: true };
     }

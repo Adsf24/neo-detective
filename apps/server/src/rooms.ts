@@ -79,7 +79,7 @@ export class Rooms {
     });
     const request = { ...payload, presented };
 
-    if (councilNeeded(room.pack, room.state, { kind: "present", ...request })) {
+    if (room.state.players.length > 1 && councilNeeded(room.pack, room.state, { kind: "present", ...request })) {
       const res = apply(room.pack, room.state, { type: "councilRequest", player, payload: { kind: "present", ...request } }, now);
       if (!res.ok) return res;
       return { ok: true, kind: "council", text: "Showing this can't be undone. Waiting for a second detective to agree.", newly: [] };
