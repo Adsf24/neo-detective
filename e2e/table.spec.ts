@@ -137,7 +137,7 @@ test("the team votes in secret, accuses with evidence and reads its debrief", as
     await bob!.getByRole("button", { name: "Post to Board" }).click();
     await bob!.getByRole("button", { name: "← Back" }).click();
   }
-  await bob!.getByText("m.cole@lumengallery.example").click();
+  await bob!.locator("summary", { hasText: "m.cole@lumengallery.example" }).click();
   await bob!.getByRole("button", { name: /Re: The Embankment.*Mon, Oct 26/ }).click(); // Stern's terms: the motive
   await bob!.getByRole("button", { name: "Post to Board" }).click();
   await bob!.getByRole("button", { name: "← Back" }).click();

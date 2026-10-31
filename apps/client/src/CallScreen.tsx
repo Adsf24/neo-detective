@@ -1,6 +1,7 @@
 import type { ContactView, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useRef, useState } from "react";
 import { buzz, flash, play } from "./fx";
+import { Icon } from "./Icons";
 import { canListen, canSpeak, listen, speak, stopSpeaking } from "./voice";
 import type { AskResult } from "../../server/src/protocol";
 
@@ -177,11 +178,11 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
               onPointerUp={() => stopListening.current?.()}
               onPointerLeave={() => listening && stopListening.current?.()}
             >
-              🎙
+              <Icon name="mic" />
             </button>
           )}
           <button type="button" aria-label="Show evidence" onClick={() => setPicking((p) => !p)}>
-            📎
+            <Icon name="clip" />
           </button>
           <input aria-label="Your question" placeholder={`Ask ${contact.name.split(" ")[0]}…`} value={question} onChange={(e) => setQuestion(e.target.value)} disabled={waiting} />
           <button type="submit" className="primary" disabled={waiting}>
