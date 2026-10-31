@@ -1,5 +1,6 @@
 import type { ContactView, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useRef, useState } from "react";
+import { buzz, flash, play } from "./fx";
 import { canListen, canSpeak, listen, speak, stopSpeaking } from "./voice";
 import type { AskResult } from "../../server/src/protocol";
 
@@ -55,6 +56,16 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     setWaiting(false);
     if (!res.ok) return setError(res.error);
     if (res.kind === "council") setNotice(res.text);
+    // The witness gave something away: make the moment land.
+    if (res.kind === "reply" && res.newly.length > 0) {
+      play("reveal");
+      buzz([20, 50, 40]);
+      flash("gold");
+    }
+    if (res.kind === "end" || res.kind === "refuse") {
+      play("stamp");
+      buzz(40);
+    }
     setQuestion("");
     setPresenting([]);
   };

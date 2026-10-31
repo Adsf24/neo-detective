@@ -1,5 +1,6 @@
 import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { burst, buzz, flyTo, play } from "./fx";
 import type { ClientAction } from "../../server/src/protocol";
 
 interface Props {
@@ -15,6 +16,7 @@ export function ItemDetail({ item, view, act, onClose, playerName }: Props) {
   const [note, setNote] = useState("");
   const [sendTo, setSendTo] = useState("");
   const others = view.players.filter((p) => p.id !== view.me.id);
+  const postButton = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="app">
@@ -22,7 +24,12 @@ export function ItemDetail({ item, view, act, onClose, playerName }: Props) {
         <button className="link-button" onClick={onClose}>
           ← Back
         </button>
-        <span className="muted small">{item.time}</span>
+        <span className="board-chip" aria-label={`${view.board.length} on the Board`}>
+          <span className="pin-mini" aria-hidden="true" />
+          <span className="bump" key={view.board.length}>
+            {view.board.length}
+          </span>
+        </span>
       </header>
       <main className="content detail">
         <h1 className="item-title">{item.title}</h1>
@@ -37,7 +44,14 @@ export function ItemDetail({ item, view, act, onClose, playerName }: Props) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void act({ type: "post", item: item.id, note });
+                void act({ type: "post", item: item.id, note }).then((r) => {
+                  if (!r.ok || !postButton.current) return;
+                  flyTo(postButton.current, ".board-chip", item.title);
+                  setTimeout(() => {
+                    play("pin");
+                    buzz(15);
+                  }, 520);
+                });
               }}
             >
               <input
@@ -46,7 +60,7 @@ export function ItemDetail({ item, view, act, onClose, playerName }: Props) {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
-              <button type="submit" className="primary wide">
+              <button type="submit" className="primary wide" ref={postButton}>
                 Post to Board
               </button>
             </form>
@@ -151,8 +165,11 @@ function Photo({ item, act }: { item: Extract<ItemView, { kind: "photo" }>; act:
                 className="hotspot"
                 aria-label="Inspect this detail"
                 style={{ left: `${h.x}%`, top: `${h.y}%`, width: `${h.w}%`, height: `${h.h}%` }}
-                onClick={() => {
+                onClick={(e) => {
                   setFound((f) => (f.includes(h.id) ? f : [...f, h.id]));
+                  burst(e.clientX, e.clientY, "spark");
+                  play("sparkle");
+                  buzz([8, 30, 8]);
                   void act({ type: "hotspot", item: item.id, hotspot: h.id });
                 }}
               />
