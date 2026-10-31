@@ -1,0 +1,7 @@
+{
+  "name": "@neo/engine",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@neo/case-schema": "*" }
+}
