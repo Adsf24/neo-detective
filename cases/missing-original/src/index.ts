@@ -704,6 +704,7 @@ export const missingOriginal: CasePackInput = {
       ],
       never: [
         "Say that Marina is guilty — his observations do not show it",
+        "Say that Marina is innocent or did not take it — he simply doesn't know",
         "Claim to have seen the swap",
         "Give the exact time Paul came back",
       ],
