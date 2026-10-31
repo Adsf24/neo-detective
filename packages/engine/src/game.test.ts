@@ -2,6 +2,7 @@ import { missingOriginal } from "@neo/case-missing-original";
 import { CasePackSchema } from "@neo/case-schema";
 import { describe, expect, it } from "vitest";
 import { evaluate } from "./conditions";
+import { tick } from "./director";
 import { apply, createGame, trashItem, type GameState } from "./game";
 import { viewFor } from "./view";
 
@@ -160,5 +161,18 @@ describe("player view", () => {
     expect(json).not.toContain("evidences");
     expect(json).not.toContain("setsFlag");
     for (const c of pack.characters) for (const k of c.knowledge) expect(json).not.toContain(k.says);
+  });
+});
+
+describe("demo start", () => {
+  it("starts a few minutes in with the computer open and key evidence on the Board", () => {
+    const state = createGame(pack);
+    for (const id of ["a", "b", "c"]) apply(pack, state, { type: "join", player: id, name: id }, T0);
+    expect(apply(pack, state, { type: "start", demo: true }, T0)).toEqual({ ok: true });
+    expect(state.startedAt).toBe(T0 - 8 * 60_000);
+    expect(state.board.map((b) => b.item)).toEqual(["c03", "c02", "p1", "p2"]);
+    expect(ids(state, "c")).toContain("m13");
+    expect(state.fired.has("oliver_reaches_out")).toBe(true);
+    expect(tick(pack, state, T0)).not.toContain("verdict_requested"); // demo must not jump to the end
   });
 });

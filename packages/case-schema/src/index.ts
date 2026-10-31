@@ -246,6 +246,15 @@ export const CasePackSchema = z.object({
   claims: z.array(ClaimSchema).min(1),
   accusation: AccusationSchema,
   reconstruction: z.object({ narrator: Id, text: z.string(), reveals: z.array(z.string()).default([]) }),
+  // Optional "skip ahead" start for demos: a game already a few minutes in.
+  demo: z
+    .object({
+      minutesAhead: z.number().min(0),
+      unlock: z.array(Id).default([]),
+      board: z.array(Id).default([]),
+      fired: z.array(Id).default([]),
+    })
+    .optional(),
 });
 
 export type CasePackInput = z.input<typeof CasePackSchema>;

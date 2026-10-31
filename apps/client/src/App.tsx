@@ -1,4 +1,5 @@
-import { useState } from "react";
+import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 import { Game } from "./Game";
 import { useGame } from "./useGame";
 
@@ -78,7 +79,8 @@ function Room({ room }: { room: string }) {
       <main className="screen">
         <p className="eyebrow">Room {room}</p>
         <h1>{view.title}</h1>
-        <p className="muted">Share this link with your team:</p>
+        <p className="muted">Scan to join, or share the link:</p>
+        <Qr text={link} />
         <p className="link">{link}</p>
         <h2>Players</h2>
         <ul aria-label="Players" className="list">
@@ -89,8 +91,8 @@ function Room({ room }: { room: string }) {
             </li>
           ))}
         </ul>
-        <button className="primary wide" onClick={() => void game.act({ type: "start" })}>
-          Start the investigation
+        <button className="primary wide" onClick={() => void game.act({ type: "start", demo: isDemo() })}>
+          {isDemo() ? "Start (demo: skip ahead)" : "Start the investigation"}
         </button>
         {game.error && <p className="error">{game.error}</p>}
       </main>
@@ -98,4 +100,16 @@ function Room({ room }: { room: string }) {
   }
 
   return <Game view={view} act={game.act} ask={game.ask} error={game.error} clearError={game.clearError} />;
+}
+
+function isDemo(): boolean {
+  return new URLSearchParams(window.location.search).has("demo");
+}
+
+function Qr({ text }: { text: string }) {
+  const [svg, setSvg] = useState("");
+  useEffect(() => {
+    void QRCode.toString(text, { type: "svg", margin: 1, color: { dark: "#14110f", light: "#ece5d8" } }).then(setSvg);
+  }, [text]);
+  return <div className="qr" aria-label="QR code to join" role="img" dangerouslySetInnerHTML={{ __html: svg }} />;
 }

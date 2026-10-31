@@ -52,6 +52,7 @@ export interface ContactView {
   name: string;
   role: string;
   channel: "voice" | "text";
+  voice: { gender: "female" | "male"; style: string };
 }
 
 export interface CallLine {
@@ -167,7 +168,7 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
   const contacts = playing
     ? pack.characters
         .filter((c) => contactIds.has(c.id))
-        .map((c) => ({ id: c.id, name: c.name, role: c.role, channel: c.channel }))
+        .map((c) => ({ id: c.id, name: c.name, role: c.role, channel: c.channel, voice: c.voice }))
     : [];
 
   return {
