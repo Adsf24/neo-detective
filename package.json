@@ -4,7 +4,8 @@
   "type": "module",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "cases/*"
   ],
   "scripts": {
     "dev": "npm run dev -w @neo/server & npm run dev -w @neo/client",
