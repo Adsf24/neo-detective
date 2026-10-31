@@ -15,5 +15,5 @@
     "allowImportingTsExtensions": false,
     "types": ["node"]
   },
-  "include": ["apps/*/src", "packages/*/src", "e2e", "playwright.config.ts", "vitest.config.ts"]
+  "include": ["apps/*/src", "packages/*/src", "cases/*/src", "e2e", "playwright.config.ts", "vitest.config.ts"]
 }
