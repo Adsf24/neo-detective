@@ -23,9 +23,9 @@ The first case, *The Missing Original*, takes 25–35 minutes.
 A character never knows more than it is willing to say right now. Before every reply the engine evaluates the character's contract — *which evidence has been shown, who is asking, what has already been admitted, what the question is about* — and passes the language model only the cover story and the knowledge that is unlocked at that moment. A model cannot leak what it never sees.
 
 ```
-question ──► fast Llama model: which topics, is it an accusation?
+question ──► fast Muse model: which topics, is it an accusation?
          ──► contract engine (deterministic): what may this character say now?
-         ──► strong Llama model: role-play using only that
+         ──► strong Muse model: role-play using only that
          ──► check: the reply may rely only on unlocked knowledge ──► retry / safe line
 ```
 
@@ -33,7 +33,7 @@ So a suspect can't be talked into confessing by pressure alone — only by the r
 
 ## Built with
 
-- **Llama** (via the Llama API) for question classification and character role-play.
+- **Meta Muse models** (`muse-spark` via the Meta Model API) for question classification and character role-play.
 - TypeScript throughout: React + Vite client, Fastify + Socket.IO server, a pure game engine, and a Zod schema for case packs.
 - Browser speech recognition and synthesis for voice calls (Chrome).
 
@@ -43,7 +43,7 @@ A case is data, not code: `cases/missing-original` holds the truth, timeline, ch
 
 ```bash
 npm install
-cp .env.example .env      # add LLAMA_API_KEY; without it an offline scripted provider is used
+cp .env.example .env      # add LLAMA_API_KEY (Meta Model API key); without it an offline scripted provider is used
 npm run dev               # server :3000, client :5173
 ```
 
