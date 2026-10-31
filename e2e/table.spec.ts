@@ -1,0 +1,63 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function joinAs(page: Page, room: string, name: string) {
+  await page.goto(`/?room=${room}`);
+  await page.getByLabel("Your name").fill(name);
+  await page.getByRole("button", { name: "Join" }).click();
+  await expect(page.getByRole("list", { name: "Players" })).toContainText(name);
+}
+
+test("three players explore the world and share evidence through the Board", async ({ browser }) => {
+  const room = `e2e-${Date.now()}`;
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const [ann, bob, cy] = await Promise.all(contexts.map((c) => c.newPage()));
+
+  await joinAs(ann!, room, "Ann");
+  await joinAs(bob!, room, "Bob");
+  await joinAs(cy!, room, "Cy");
+
+  await ann!.getByRole("button", { name: "Start the investigation" }).click();
+  for (const page of [ann!, bob!, cy!]) await page.getByRole("button", { name: "Start investigating" }).click();
+
+  // Starting materials are personal: with three players Ann also holds the anonymous letter.
+  await expect(ann!.getByRole("button", { name: /No subject/ })).toBeVisible();
+  await expect(bob!.getByRole("button", { name: /No subject/ })).toHaveCount(0);
+  await expect(bob!.getByRole("button", { name: /Note from Paul/ })).toBeVisible();
+
+  // Only Ann sees the photos.
+  await expect(ann!.getByRole("heading", { name: "Photos" })).toBeVisible();
+  await expect(cy!.getByRole("heading", { name: "Photos" })).toHaveCount(0);
+
+  // Bob unlocks the computer with the password from his note and posts the change log.
+  await bob!.getByLabel("Password").fill("PG-1962");
+  await bob!.getByRole("button", { name: "Unlock" }).click();
+  await bob!.getByRole("button", { name: /Registry — change log/ }).click();
+  await bob!.getByLabel("Why it matters").fill("Marina changed No.14 at 17:40");
+  await bob!.getByRole("button", { name: "Post to Board" }).click();
+  await expect(bob!.getByText(/On the Board — posted by Bob/)).toBeVisible();
+
+  // Everyone sees it on the Board within a second.
+  for (const page of [ann!, cy!]) {
+    await page.getByRole("button", { name: /^Board/ }).click();
+    const board = page.getByRole("list", { name: "Board" });
+    await expect(board).toContainText("Registry — change log", { timeout: 1_000 });
+    await expect(board).toContainText("Marina changed No.14 at 17:40");
+  }
+
+  // Cy can open the posted item although the computer is still locked for him.
+  await cy!.getByRole("button", { name: /Registry — change log/ }).click();
+  await expect(cy!.getByRole("table")).toContainText("m.cole");
+
+  await Promise.all(contexts.map((c) => c.close()));
+});
+
+test("a refreshed player rejoins the same seat", async ({ browser }) => {
+  const room = `e2e-rejoin-${Date.now()}`;
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await joinAs(page, room, "Ann");
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Players" })).toContainText("Ann");
+  await expect(page.getByRole("list", { name: "Players" }).getByRole("listitem")).toHaveCount(1);
+  await context.close();
+});

@@ -2,6 +2,13 @@
   "name": "@neo/engine",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@neo/case-schema": "*" }
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@neo/case-schema": "*"
+  },
+  "devDependencies": {
+    "@neo/case-missing-original": "*"
+  }
 }
