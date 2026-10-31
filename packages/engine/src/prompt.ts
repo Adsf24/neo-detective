@@ -51,6 +51,8 @@ export interface ReplyContext {
   memory: CharacterMemory;
   askerName: string;
   question: string;
+  // Knowledge that moves the plot (it sets flags): the reply must actually say it.
+  mustSay?: string[];
 }
 
 function describeItem(pack: CasePack, id: string): string {
@@ -75,6 +77,9 @@ export function characterMessages(ctx: ReplyContext): ChatMessage[] {
       ? "What you are willing to say now. Keep the meaning exactly, in your own words; never add facts:"
       : "You have nothing to add beyond your version of events.",
     ...ctx.active.map((k) => `- [${k.id}] ${k.says}`),
+    ...(ctx.mustSay?.length
+      ? ["", `In this answer you must clearly say the substance of: ${ctx.mustSay.map((id) => `[${id}]`).join(", ")} — and list those ids in "used".`]
+      : []),
     "",
     ctx.presented.length ? "Things the investigators have shown you:" : "",
     ...ctx.presented.map((id) => `- ${describeItem(ctx.pack, id)}`),
@@ -99,7 +104,7 @@ export function characterMessages(ctx: ReplyContext): ChatMessage[] {
   ];
 }
 
-export type ReplyCheck = { ok: true; reply: string } | { ok: false; reason: string };
+export type ReplyCheck = { ok: true; reply: string; used: string[] } | { ok: false; reason: string };
 
 // The model may only lean on knowledge it was given for this turn.
 export function checkReply(raw: string, allowed: ReadonlySet<string>): ReplyCheck {
@@ -113,7 +118,7 @@ export function checkReply(raw: string, allowed: ReadonlySet<string>): ReplyChec
   const used = Array.isArray(json.used) ? json.used.filter((u): u is string => typeof u === "string") : [];
   const outside = used.filter((u) => !allowed.has(u));
   if (outside.length) return { ok: false, reason: `used locked knowledge: ${outside.join(", ")}` };
-  return { ok: true, reply: json.reply.trim() };
+  return { ok: true, reply: json.reply.trim(), used };
 }
 
 function extractJson(raw: string): string {

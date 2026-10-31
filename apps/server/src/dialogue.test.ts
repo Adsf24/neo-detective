@@ -63,3 +63,35 @@ describe("ask", () => {
     expect(viewFor(pack, state, "c", 0)!.calls.paul).toHaveLength(1);
   });
 });
+
+describe("plot-moving knowledge is really said", () => {
+  // A model that passes the leak check but dodges what it was asked to say.
+  class EvasiveProvider implements LlmProvider {
+    readonly name = "evasive";
+    strongCalls = 0;
+    async complete(req: CompletionRequest) {
+      if (req.tier === "fast") return '{"topics":["took_original"],"accusatory":false}';
+      this.strongCalls += 1;
+      return '{"reply":"I would rather not talk about that.","used":[]}';
+    }
+  }
+
+  it("lands the confession even when the model dodges it", async () => {
+    const state = started();
+    const llm = new EvasiveProvider();
+    const res = await ask(pack, state, llm, { character: "marina", asker: "b", question: "Did you take the original?", presented: ["m13", "c02"], shared: true });
+    expect(res).toMatchObject({ ok: true, kind: "reply" });
+    if (!res.ok) return;
+    expect(res.newly).toContain("marina_took");
+    expect(state.flags.has("marina_confessed")).toBe(true);
+    // The state says she confessed, so the players must have heard it.
+    const confession = pack.characters.find((c) => c.id === "marina")!.knowledge.find((k) => k.id === "marina_took")!.says;
+    expect(res.text).toContain(confession);
+  });
+
+  it("does not force anything when nothing plot-moving was unlocked", async () => {
+    const llm = new EvasiveProvider();
+    const res = await ask(pack, started(), llm, { character: "marina", asker: "a", question: "How are you?", presented: [], shared: false });
+    expect(res).toMatchObject({ ok: true, text: "I would rather not talk about that." });
+  });
+});
