@@ -27,14 +27,22 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
 
   if (!briefed) {
     return (
-      <main className="screen">
-        <p className="eyebrow">Briefing</p>
-        <h1>{view.briefing.title}</h1>
-        {view.briefing.text.split("\n\n").map((p, i) => (
-          <p key={i}>{p}</p>
-        ))}
-        <div className="card">
-          <p className="eyebrow">Only you — {view.me.slotLabel}</p>
+      <main className="screen briefing">
+        <article className="letter">
+          <p className="eyebrow">The case of</p>
+          <h1 className="display">{view.title}</h1>
+          <p className="dateline">{view.briefing.title}</p>
+          {view.briefing.text.split("\n\n").map((p, i) => (
+            <p key={i} className="ink" style={{ animationDelay: `${0.25 + i * 0.35}s` }}>
+              {p}
+            </p>
+          ))}
+          <span className="wax" aria-hidden="true">
+            N
+          </span>
+        </article>
+        <div className="private-note">
+          <p className="eyebrow">For your eyes only — {view.me.slotLabel}</p>
           <p>{view.me.intro}</p>
         </div>
         <button className="primary wide" onClick={() => setBriefed(true)}>
@@ -81,29 +89,29 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
   function renderMain() {
     return (
     <div className="app">
-      <header className="topbar">
-        <span>{view.title}</span>
-        <span className="muted">{view.act.title}</span>
+      <header className="topbar plate">
+        <span className="plate-title">{view.title}</span>
+        <span className="act-ribbon">{view.act.title}</span>
       </header>
       {error && (
         <p className="error" role="alert" onClick={clearError}>
           {error}
         </p>
       )}
-      <main className="content">
+      <main className="content" key={tab}>
         {tab === "world" && <World view={view} items={items} act={act} onOpen={setOpen} onCall={setCalling} />}
         {tab === "board" && <Board view={view} items={items} act={act} onOpen={setOpen} playerName={playerName} />}
         {tab === "inbox" && <Inbox view={view} />}
       </main>
       <nav className="tabs" aria-label="Sections">
         <button aria-pressed={tab === "world"} onClick={() => setTab("world")}>
-          World
+          World <span className="tab-icon" aria-hidden="true">⌖</span>
         </button>
         <button aria-pressed={tab === "board"} onClick={() => setTab("board")}>
           Board <span className="badge">{view.board.length}</span>
         </button>
         <button aria-pressed={tab === "inbox"} onClick={() => setTab("inbox")}>
-          Inbox {view.inbox.length > 0 && <span className="badge">{view.inbox.length}</span>}
+          Inbox {view.inbox.length > 0 ? <span className="badge pulse">{view.inbox.length}</span> : <span className="tab-icon" aria-hidden="true">{"✉\uFE0E"}</span>}
         </button>
       </nav>
     </div>
@@ -111,12 +119,18 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
   }
 }
 
-function ItemRow({ item, onOpen }: { item: ItemView; onOpen: (id: string) => void }) {
+// U+FE0E asks for the text glyph, not an emoji, on phones.
+const KIND_GLYPH: Record<ItemView["kind"], string> = { mail: "✉\uFE0E", document: "§", table: "≡", photo: "◉", finding: "✦\uFE0E" };
+
+function ItemRow({ item, onOpen, index = 0 }: { item: ItemView; onOpen: (id: string) => void; index?: number }) {
   return (
-    <li>
-      <button className="row-button" onClick={() => onOpen(item.id)}>
-        <span>{item.title}</span>
-        {item.time && <span className="muted small">{item.time}</span>}
+    <li className="deal" style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}>
+      <button className={`row-button evidence kind-${item.kind}`} onClick={() => onOpen(item.id)}>
+        <span className="glyph" aria-hidden="true">
+          {KIND_GLYPH[item.kind]}
+        </span>
+        <span className="evidence-title">{item.title}</span>
+        {item.time && <span className="stamp-time">{item.time}</span>}
       </button>
     </li>
   );
@@ -148,15 +162,18 @@ function World({
       <section>
         <h2>Your materials</h2>
         <ul className="list">
-          {folder.map((i) => (
-            <ItemRow key={i.id} item={i} onOpen={onOpen} />
+          {folder.map((i, n) => (
+            <ItemRow key={i.id} item={i} onOpen={onOpen} index={n} />
           ))}
         </ul>
       </section>
 
       {top.map((c) => (
         <section key={c.id}>
-          <h2>{c.title}</h2>
+          <h2>
+            {c.kind === "computer" ? "⌨ " : c.kind === "gallery" ? "◉ " : c.kind === "location" ? "⚲ " : ""}
+            {c.title}
+          </h2>
           {c.needsCouncil ? (
             <button className="wide" onClick={() => void act({ type: "councilRequest", payload: { kind: "search", container: c.id } })}>
               Search — needs a second detective
@@ -166,16 +183,16 @@ function World({
           ) : (
             <>
               <ul className="list">
-                {inContainer(c.id).map((i) => (
-                  <ItemRow key={i.id} item={i} onOpen={onOpen} />
+                {inContainer(c.id).map((i, n) => (
+                  <ItemRow key={i.id} item={i} onOpen={onOpen} index={n} />
                 ))}
               </ul>
               {children(c.id).map((child) => (
                 <details key={child.id} className="sub">
                   <summary>{child.title}</summary>
                   <ul className="list">
-                    {inContainer(child.id).map((i) => (
-                      <ItemRow key={i.id} item={i} onOpen={onOpen} />
+                    {inContainer(child.id).map((i, n) => (
+                      <ItemRow key={i.id} item={i} onOpen={onOpen} index={n} />
                     ))}
                   </ul>
                 </details>
@@ -190,10 +207,19 @@ function World({
         <ul className="list">
           {view.contacts.map((c) => (
             <li key={c.id} className="contact">
-              <span>
-                {c.name} <span className="muted small">· {c.role}</span>
+              <span className="medallion" aria-hidden="true">
+                {c.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")}
               </span>
-              <button onClick={() => onCall(c.id)}>{c.channel === "voice" ? "Call" : "Message"}</button>
+              <span className="contact-name">
+                {c.name}
+                <span className="muted small">{c.role}</span>
+              </span>
+              <button className="brass" onClick={() => onCall(c.id)}>
+                {c.channel === "voice" ? "Call" : "Message"}
+              </button>
             </li>
           ))}
         </ul>
@@ -242,11 +268,11 @@ function Board({
       <section>
         <h2>Evidence</h2>
         {view.board.length === 0 && <p className="muted">Nothing yet. Open an item and post it to the Board.</p>}
-        <ul className="list" aria-label="Board">
-          {view.board.map((card) => {
+        <ul className="list cork" aria-label="Board">
+          {view.board.map((card, n) => {
             const item = items.get(card.item);
             return (
-              <li key={card.item} className="card">
+              <li key={card.item} className="pinned" style={{ ["--tilt" as string]: `${((n * 37) % 7) - 3}deg` }}>
                 <button className="row-button" onClick={() => onOpen(card.item)}>
                   <span>{item?.title ?? card.item}</span>
                   {item?.time && <span className="muted small">{item.time}</span>}
@@ -267,7 +293,8 @@ function Board({
           <ol className="timeline">
             {timeline.map((i) => (
               <li key={i.id}>
-                <span className="muted small">{i.time}</span> {i.title}
+                <span className="tl-time">{i.time}</span>
+                <span>{i.title}</span>
               </li>
             ))}
           </ol>
@@ -312,7 +339,7 @@ function Inbox({ view }: { view: PlayerView }) {
       {view.inbox.length === 0 && <p className="muted">No messages.</p>}
       <ul className="list">
         {[...view.inbox].reverse().map((m) => (
-          <li key={m.id} className="card">
+          <li key={m.id} className="card telegram deal">
             <p className="eyebrow">{m.from}</p>
             <p>{m.text}</p>
           </li>

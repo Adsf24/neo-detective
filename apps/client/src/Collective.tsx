@@ -9,7 +9,10 @@ export function CouncilBanner({ view, act, playerName }: { view: PlayerView; act
   const open = view.councils.filter((c) => c.status === "open");
   if (open.length === 0) return null;
   return (
-    <div className="council" role="alert">
+    <div className="council letterhead" role="alert">
+      <span className="wax small-seal" aria-hidden="true">
+        ✠
+      </span>
       {open.map((c) =>
         c.requestedBy === view.me.id ? (
           <div key={c.id}>
@@ -57,13 +60,13 @@ export function ActTransition({ view, items, act }: { view: PlayerView; items: M
   }
 
   return (
-    <div className="overlay" role="dialog" aria-label="Working version">
+    <div className="overlay curtain" role="dialog" aria-label="Working version">
       <main className="screen">
         <button className="link-button" onClick={() => setMinimized(true)}>
           Look through the materials first
         </button>
-        <p className="eyebrow">Before “{view.transition.title}”</p>
-        <h1>What does the team think so far?</h1>
+        <p className="eyebrow">Interlude · before “{view.transition.title}”</p>
+        <h1 className="display">What does the team think so far?</h1>
         <p className="muted">
           Talk it through and record one version together. It can be wrong — it's where you stand right now. The story won't move on
           until it's recorded.

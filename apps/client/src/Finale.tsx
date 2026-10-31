@@ -12,22 +12,30 @@ export function Verdict({ view, items, act, playerName }: { view: PlayerView; it
   const suspect = (id: string) => view.suspects.find((s) => s.id === id)?.name ?? id;
 
   return (
-    <div className="overlay" role="dialog" aria-label="Verdict">
+    <div className="overlay curtain" role="dialog" aria-label="Verdict">
       <main className="screen">
         <p className="eyebrow">The verdict</p>
         {!v.revealed ? (
           <>
-            <h1>Who did it? Vote on your own.</h1>
+            <h1 className="display">Who did it? Vote on your own.</h1>
             <p className="muted">Nobody sees your vote until everyone has voted.</p>
-            <ul className="list">
-              {view.suspects.map((s) => (
-                <li key={s.id}>
+            <ul className="list suspects">
+              {view.suspects.map((s, n) => (
+                <li key={s.id} className="deal" style={{ animationDelay: `${n * 90}ms` }}>
                   <button
-                    className={`row-button${v.mine === s.id ? " chosen" : ""}`}
+                    className={`row-button suspect-card${v.mine === s.id ? " chosen" : ""}`}
                     onClick={() => void act({ type: "vote", who: s.id }).then((r) => setError(r.ok ? null : r.error))}
                   >
-                    <span>{s.name}</span>
-                    <span className="muted small">{s.role}</span>
+                    <span className="medallion" aria-hidden="true">
+                      {s.name
+                        .split(" ")
+                        .map((w) => w[0])
+                        .join("")}
+                    </span>
+                    <span className="contact-name">
+                      {s.name}
+                      <span className="muted small">{s.role}</span>
+                    </span>
                   </button>
                 </li>
               ))}
@@ -39,11 +47,12 @@ export function Verdict({ view, items, act, playerName }: { view: PlayerView; it
           </>
         ) : (
           <>
-            <h1>The votes</h1>
-            <ul className="list">
-              {Object.entries(v.revealed).map(([player, who]) => (
-                <li key={player}>
-                  {playerName(player)} → <strong>{suspect(who)}</strong>
+            <h1 className="display">The votes</h1>
+            <ul className="list votes">
+              {Object.entries(v.revealed).map(([player, who], n) => (
+                <li key={player} className="flip" style={{ animationDelay: `${n * 220}ms` }}>
+                  <span className="muted small">{playerName(player)}</span>
+                  <strong>{suspect(who)}</strong>
                 </li>
               ))}
             </ul>
@@ -119,7 +128,7 @@ export function Debrief({ view, items, playerName }: { view: PlayerView; items: 
   return (
     <main className="screen debrief">
       <p className="eyebrow">Debrief</p>
-      <h1>{headline}</h1>
+      <h1 className={`verdict-stamp outcome-${d.score.outcome}`}>{headline}</h1>
       <p>
         {playerName(d.accusation.by)} accused <strong>{accused}</strong>.{" "}
         {d.score.culprit ? "That's who did it." : `It was ${d.culpritName}.`}

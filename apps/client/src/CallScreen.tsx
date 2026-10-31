@@ -61,14 +61,24 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
 
   return (
     <div className="app call">
-      <header className="topbar">
+      <header className="topbar plate">
         <button className="link-button" onClick={onClose}>
           ← Hang up
         </button>
-        <span>{contact.name}</span>
+        <span className="plate-title">
+          <span className="receiver" aria-hidden="true">☎</span> {contact.name}
+        </span>
       </header>
       <main className="content transcript" aria-label="Transcript">
-        <p className="muted small">{contact.role}</p>
+        <div className="caller-card">
+          <span className="medallion big" aria-hidden="true">
+            {contact.name
+              .split(" ")
+              .map((w) => w[0])
+              .join("")}
+          </span>
+          <p className="muted small">{contact.role}</p>
+        </div>
         {lines.map((l, i) => (
           <div key={i} className="exchange">
             <p className="q">
@@ -76,10 +86,16 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
               <br />
               {l.question}
             </p>
-            <p className="a">{l.reply}</p>
+            <p className="a ink-line">{l.reply}</p>
           </div>
         ))}
-        {waiting && <p className="a muted">…</p>}
+        {waiting && (
+          <p className="a thinking" aria-label="Waiting for an answer">
+            <span />
+            <span />
+            <span />
+          </p>
+        )}
         <div ref={end} />
       </main>
 
