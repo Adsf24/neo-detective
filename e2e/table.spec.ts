@@ -61,3 +61,37 @@ test("a refreshed player rejoins the same seat", async ({ browser }) => {
   await expect(page.getByRole("list", { name: "Players" }).getByRole("listitem")).toHaveCount(1);
   await context.close();
 });
+
+test("a speakerphone call: showing evidence makes the witness change her story for everyone", async ({ browser }) => {
+  const room = `e2e-call-${Date.now()}`;
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const [ann, bob, cy] = await Promise.all(contexts.map((c) => c.newPage()));
+  await joinAs(ann!, room, "Ann");
+  await joinAs(bob!, room, "Bob");
+  await joinAs(cy!, room, "Cy");
+  await ann!.getByRole("button", { name: "Start the investigation" }).click();
+  for (const page of [ann!, bob!, cy!]) await page.getByRole("button", { name: "Start investigating" }).click();
+
+  // Bob gets the change log from the computer.
+  await bob!.getByLabel("Password").fill("PG-1962");
+  await bob!.getByRole("button", { name: "Unlock" }).click();
+
+  // Bob calls Marina on speakerphone and shows it.
+  await bob!.getByRole("listitem").filter({ hasText: "Marina Cole" }).getByRole("button", { name: "Call" }).click();
+  await bob!.getByLabel("Your question").fill("What did you do on Wednesday afternoon?");
+  await bob!.getByRole("button", { name: "Ask" }).click();
+  const transcript = bob!.getByLabel("Transcript");
+  await expect(transcript).toContainText("packing delivery");
+
+  await bob!.getByRole("button", { name: "Show evidence" }).click();
+  await bob!.getByRole("list", { name: "Evidence to show" }).getByRole("button", { name: "Registry — change log" }).click();
+  await bob!.getByLabel("Your question").fill("Why did you change the registry?");
+  await bob!.getByRole("button", { name: "Ask" }).click();
+  await expect(transcript).toContainText("Paul asked me");
+
+  // Ann heard it on the speaker.
+  await ann!.getByRole("listitem").filter({ hasText: "Marina Cole" }).getByRole("button", { name: "Call" }).click();
+  await expect(ann!.getByLabel("Transcript")).toContainText("Paul asked me");
+
+  await Promise.all(contexts.map((c) => c.close()));
+});

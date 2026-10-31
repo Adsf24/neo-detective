@@ -32,7 +32,8 @@ Boundaries:
 - Code never mentions case-specific names (Marina, the gallery, item numbers). If you need one, it belongs in `cases/`.
 - `packages/engine` must stay pure and synchronous where possible; the server wires it to sockets and LLMs.
 - The socket contract lives in `apps/server/src/protocol.ts` and is imported by the client.
-- The LLM sits behind a provider interface in `apps/server`; Llama API is the implementation. Do not call a provider SDK from anywhere else.
+- The LLM sits behind `LlmProvider` in `apps/server/src/llm`. `LlamaProvider` is used when `LLAMA_API_KEY` is set; otherwise `ScriptedProvider`, a deterministic offline stand-in. e2e always runs scripted. Do not call a model from anywhere else.
+- The reply loop lives in `apps/server/src/dialogue.ts`: classify → `planTurn` (contract engine) → role-play prompt with unlocked knowledge only → `checkReply` → one retry → safe line.
 
 ## Commands
 

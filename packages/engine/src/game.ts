@@ -1,5 +1,6 @@
 import type { CasePack, Container, Item } from "@neo/case-schema";
 import { evaluate, type ConditionContext } from "./conditions";
+import type { CharacterMemory } from "./contract";
 
 // Authoritative game state for one room. All mutations go through `apply`,
 // which validates the action against the case pack and returns an error
@@ -52,6 +53,7 @@ export interface GameState {
   inbox: Map<string, InboxMessage[]>;
   board: BoardCard[];
   notes: Note[];
+  characters: Map<string, CharacterMemory>;
   log: LogEntry[];
   seq: number;
 }
@@ -82,6 +84,7 @@ export function createGame(pack: CasePack): GameState {
     inbox: new Map(),
     board: [],
     notes: [],
+    characters: new Map(),
     log: [],
     seq: 0,
   };

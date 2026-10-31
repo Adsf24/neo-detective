@@ -164,3 +164,22 @@ th { color: var(--muted); font-weight: 500; }
 .finding { background: var(--panel); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; }
 
 .timeline { padding-left: 1.2em; margin: 0; display: grid; gap: 4px; }
+
+.call .transcript { padding-bottom: 200px; }
+.exchange { margin: 12px 0; }
+.q { margin: 0 0 6px; }
+.a { margin: 0; background: var(--panel); border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; }
+.composer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+}
+.composer .row { margin: 6px 0; }
+.toggle { display: flex; gap: 8px; align-items: center; }
+.toggle input { width: auto; }
+.chip { padding: 2px 8px; margin: 2px; font-size: 0.8rem; }
+.picker { max-height: 40vh; overflow: auto; margin-bottom: 8px; }

@@ -1,6 +1,7 @@
 import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
 import { useMemo, useState } from "react";
-import type { ClientAction } from "../../server/src/protocol";
+import type { AskResult, ClientAction } from "../../server/src/protocol";
+import { CallScreen } from "./CallScreen";
 import { ItemDetail } from "./ItemDetail";
 
 type Act = (action: ClientAction) => Promise<ApplyResult>;
@@ -9,11 +10,13 @@ type Tab = "world" | "board" | "inbox";
 export interface GameProps {
   view: PlayerView;
   act: Act;
+  ask: (payload: { character: string; question: string; presented: string[]; shared: boolean }) => Promise<AskResult>;
   error: string | null;
   clearError: () => void;
 }
 
-export function Game({ view, act, error, clearError }: GameProps) {
+export function Game({ view, act, ask, error, clearError }: GameProps) {
+  const [calling, setCalling] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("world");
   const [open, setOpen] = useState<string | null>(null);
   const [briefed, setBriefed] = useState(false);
@@ -37,6 +40,11 @@ export function Game({ view, act, error, clearError }: GameProps) {
         </button>
       </main>
     );
+  }
+
+  const contact = calling ? view.contacts.find((c) => c.id === calling) : undefined;
+  if (contact) {
+    return <CallScreen contact={contact} view={view} items={items} ask={ask} onClose={() => setCalling(null)} playerName={playerName} />;
   }
 
   const openItem = open ? items.get(open) : undefined;
@@ -64,7 +72,7 @@ export function Game({ view, act, error, clearError }: GameProps) {
         </p>
       )}
       <main className="content">
-        {tab === "world" && <World view={view} items={items} act={act} onOpen={setOpen} />}
+        {tab === "world" && <World view={view} items={items} act={act} onOpen={setOpen} onCall={setCalling} />}
         {tab === "board" && <Board view={view} items={items} act={act} onOpen={setOpen} playerName={playerName} />}
         {tab === "inbox" && <Inbox view={view} />}
       </main>
@@ -94,7 +102,19 @@ function ItemRow({ item, onOpen }: { item: ItemView; onOpen: (id: string) => voi
   );
 }
 
-function World({ view, items, act, onOpen }: { view: PlayerView; items: Map<string, ItemView>; act: Act; onOpen: (id: string) => void }) {
+function World({
+  view,
+  items,
+  act,
+  onOpen,
+  onCall,
+}: {
+  view: PlayerView;
+  items: Map<string, ItemView>;
+  act: Act;
+  onOpen: (id: string) => void;
+  onCall: (id: string) => void;
+}) {
   const folder = view.folder.map((id) => items.get(id)).filter((i): i is ItemView => !!i);
   const top = view.containers.filter((c) => c.kind !== "personal" && !c.parent);
   const children = (id: string) => view.containers.filter((c) => c.parent === id);
@@ -149,9 +169,7 @@ function World({ view, items, act, onOpen }: { view: PlayerView; items: Map<stri
               <span>
                 {c.name} <span className="muted small">· {c.role}</span>
               </span>
-              <button disabled title="Calls arrive on day 2">
-                Call
-              </button>
+              <button onClick={() => onCall(c.id)}>{c.channel === "voice" ? "Call" : "Message"}</button>
             </li>
           ))}
         </ul>

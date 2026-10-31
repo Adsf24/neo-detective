@@ -1,4 +1,5 @@
 import type { Action, ApplyResult, PlayerView } from "@neo/engine";
+import type { AskResult } from "./dialogue";
 
 // Socket event contract shared with the client.
 
@@ -12,10 +13,14 @@ export type JoinResult = { ok: true; player: string } | { ok: false; error: stri
 export interface ClientToServer {
   join: (payload: { room: string; name: string; player: string }, ack: (res: JoinResult) => void) => void;
   act: (action: ClientAction, ack: (res: ApplyResult) => void) => void;
+  ask: (
+    payload: { character: string; question: string; presented: string[]; shared: boolean },
+    ack: (res: AskResult) => void,
+  ) => void;
 }
 
 export interface ServerToClient {
   view: (view: PlayerView) => void;
 }
 
-export type { PlayerView };
+export type { AskResult, PlayerView };
