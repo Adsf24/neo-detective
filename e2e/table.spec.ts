@@ -87,9 +87,33 @@ test("a speakerphone call: showing evidence makes the witness change her story f
   await bob!.getByRole("list", { name: "Evidence to show" }).getByRole("button", { name: "Registry — change log" }).click();
   await bob!.getByLabel("Your question").fill("Why did you change the registry?");
   await bob!.getByRole("button", { name: "Ask" }).click();
+
+  // Showing evidence to the suspect is irreversible: a second detective has to agree.
+  await expect(bob!.getByText("Waiting for a second detective", { exact: false }).first()).toBeVisible();
+  await expect(ann!.getByText("Show Registry — change log to Marina Cole")).toBeVisible();
+  await ann!.getByRole("button", { name: "Agree" }).click();
   await expect(transcript).toContainText("Paul asked me");
 
-  // Ann heard it on the speaker.
+  // Marina is now alerted: the director opens the act transition for everyone.
+  await expect(cy!.getByRole("dialog", { name: "Working version" })).toBeVisible();
+
+  // Bob steps out of the version form to post the change log as backing.
+  await bob!.getByRole("button", { name: "Look through the materials first" }).click();
+  await bob!.getByRole("button", { name: "← Hang up" }).click();
+  await bob!.getByRole("button", { name: /Registry — change log/ }).click();
+  await bob!.getByRole("button", { name: "Post to Board" }).click();
+
+  // The team records its working version; Act II starts for everyone.
+  const dialog = cy!.getByRole("dialog", { name: "Working version" });
+  await dialog.getByLabel("Who").selectOption({ label: "Marina Cole — Gallery administrator" });
+  await dialog.getByLabel("What happened").fill("She swapped the print and changed the card to cover it.");
+  await dialog.getByLabel("Why").fill("Stern offered money.");
+  await dialog.getByLabel("Registry — change log").check();
+  await dialog.getByRole("button", { name: "Record our version" }).click();
+  await expect(cy!.getByRole("dialog", { name: "Working version" })).toHaveCount(0);
+  await expect(ann!.getByText("Pressure")).toBeVisible();
+
+  // Ann heard Marina on the speaker.
   await ann!.getByRole("listitem").filter({ hasText: "Marina Cole" }).getByRole("button", { name: "Call" }).click();
   await expect(ann!.getByLabel("Transcript")).toContainText("Paul asked me");
 

@@ -117,12 +117,21 @@ describe("access", () => {
     expect(ids(state, "p1")).toContain("p3");
   });
 
-  it("reveals the cabinet once the hotspot is marked", () => {
+  it("reveals the cabinet once the hotspot is marked, and searches it only with a second detective", () => {
     const state = started(4);
-    expect(ids(state, "p0")).not.toContain("original_found");
+    expect(viewFor(pack, state, "p0", T0)!.containers.map((c) => c.id)).not.toContain("packing_cabinet");
     apply(pack, state, { type: "hotspot", player: "p0", item: "p3", hotspot: "p3_cabinet" }, T0);
+    const cabinet = viewFor(pack, state, "p1", T0)!.containers.find((c) => c.id === "packing_cabinet");
+    expect(cabinet).toMatchObject({ needsCouncil: true });
+    expect(ids(state, "p0")).not.toContain("original_found");
+
+    const request = { type: "councilRequest", player: "p0", payload: { kind: "search", container: "packing_cabinet" } } as const;
+    expect(apply(pack, state, request, T0)).toEqual({ ok: true });
+    const council = state.councils[0]!;
+    expect(apply(pack, state, { type: "councilDecide", player: "p0", council: council.id, approve: true }, T0)).toMatchObject({ ok: false });
+    expect(apply(pack, state, { type: "councilDecide", player: "p1", council: council.id, approve: true }, T0)).toEqual({ ok: true });
     expect(ids(state, "p0")).toContain("original_found");
-    expect(ids(state, "p1")).toContain("original_found");
+    expect(ids(state, "p2")).toContain("original_found");
   });
 
   it("moves a trashed mail to its trash record but keeps a Board copy", () => {

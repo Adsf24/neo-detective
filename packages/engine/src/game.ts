@@ -40,6 +40,30 @@ export interface LogEntry {
   detail: Record<string, string | undefined>;
 }
 
+export interface Version {
+  act: string;
+  author: string;
+  who: string;
+  what: string;
+  why: string;
+  items: string[];
+  at: number;
+}
+
+export type CouncilPayload =
+  | { kind: "present"; character: string; question: string; presented: string[]; shared: boolean }
+  | { kind: "search"; container: string };
+
+export interface Council {
+  id: string;
+  irreversible: string;
+  requestedBy: string;
+  payload: CouncilPayload;
+  status: "open" | "approved" | "declined" | "cancelled";
+  decidedBy?: string;
+  at: number;
+}
+
 export interface GameState {
   phase: "lobby" | "playing";
   startedAt: number | null;
@@ -54,6 +78,15 @@ export interface GameState {
   board: BoardCard[];
   notes: Note[];
   characters: Map<string, CharacterMemory>;
+  // Director
+  fired: Set<string>;
+  pending: { event: string; dueAt: number }[];
+  transition: { toAct: string; since: number } | null;
+  versions: Version[];
+  verdictRequested: boolean;
+  // Council
+  councils: Council[];
+  approved: Set<string>; // irreversible ids approved for the rest of the game (searches)
   log: LogEntry[];
   seq: number;
 }
@@ -66,7 +99,11 @@ export type Action =
   | { type: "post"; player: string; item: string; note?: string }
   | { type: "send"; player: string; item: string; to: string }
   | { type: "note"; player: string; text: string }
-  | { type: "hotspot"; player: string; item: string; hotspot: string };
+  | { type: "hotspot"; player: string; item: string; hotspot: string }
+  | { type: "version"; player: string; who: string; what: string; why: string; items: string[] }
+  | { type: "councilRequest"; player: string; payload: CouncilPayload }
+  | { type: "councilDecide"; player: string; council: string; approve: boolean }
+  | { type: "councilCancel"; player: string; council: string };
 
 export type ApplyResult = { ok: true } | { ok: false; error: string };
 
@@ -85,6 +122,13 @@ export function createGame(pack: CasePack): GameState {
     board: [],
     notes: [],
     characters: new Map(),
+    fired: new Set(),
+    pending: [],
+    transition: null,
+    versions: [],
+    verdictRequested: false,
+    councils: [],
+    approved: new Set(),
     log: [],
     seq: 0,
   };
@@ -135,6 +179,7 @@ export function itemVisible(pack: CasePack, state: GameState, playerId: string, 
   if (state.trashed.has(item.id)) return false;
   const container = pack.containers.find((c) => c.id === item.container);
   if (!container || container.kind === "personal") return false;
+  if (searchGate(pack, state, container.id)) return false;
   return containerOpen(pack, state, playerId, container, now);
 }
 
@@ -227,6 +272,49 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
       log(state, now, "note", action.player, { text });
       return { ok: true };
     }
+    case "version": {
+      if (!state.transition) return fail("No version is being recorded right now.");
+      if (!pack.characters.some((c) => c.id === action.who)) return fail("Pick who did it.");
+      const what = action.what.trim();
+      const why = action.why.trim();
+      if (!what || !why) return fail("Say what happened and why.");
+      const onBoard = new Set(state.board.map((b) => b.item));
+      const items = [...new Set(action.items)].filter((i) => onBoard.has(i));
+      if (items.length === 0) return fail("Back your version with at least one item from the Board.");
+      state.versions.push({ act: state.act, author: action.player, who: action.who, what: what.slice(0, 500), why: why.slice(0, 500), items, at: now });
+      log(state, now, "version", action.player, { act: state.act, who: action.who });
+      state.act = state.transition.toAct;
+      state.transition = null;
+      log(state, now, "act", undefined, { act: state.act });
+      return { ok: true };
+    }
+    case "councilRequest": {
+      const irreversible = councilNeeded(pack, state, action.payload);
+      if (!irreversible) return fail("No council needed.");
+      if (state.councils.some((c) => c.status === "open" && c.requestedBy === action.player)) {
+        return fail("You already have a request waiting for a second detective.");
+      }
+      if (state.players.length < 2) return fail("A second detective is needed.");
+      state.councils.push({ id: nextId(state, "c"), irreversible: irreversible.id, requestedBy: action.player, payload: action.payload, status: "open", at: now });
+      log(state, now, "council_request", action.player, { irreversible: irreversible.id });
+      return { ok: true };
+    }
+    case "councilDecide": {
+      const c = state.councils.find((x) => x.id === action.council && x.status === "open");
+      if (!c) return fail("That decision is no longer open.");
+      if (c.requestedBy === action.player) return fail("Another detective has to decide.");
+      c.status = action.approve ? "approved" : "declined";
+      c.decidedBy = action.player;
+      if (action.approve && c.payload.kind === "search") state.approved.add(c.irreversible);
+      log(state, now, "council_decide", action.player, { council: c.id, approve: String(action.approve) });
+      return { ok: true };
+    }
+    case "councilCancel": {
+      const c = state.councils.find((x) => x.id === action.council && x.status === "open");
+      if (!c || c.requestedBy !== action.player) return fail("Nothing to cancel.");
+      c.status = "cancelled";
+      return { ok: true };
+    }
     case "hotspot": {
       const item = pack.items.find((i) => i.id === action.item);
       if (!item || item.kind !== "photo" || !itemVisible(pack, state, action.player, item, now)) return fail("You can't see that.");
@@ -237,6 +325,22 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
       return { ok: true };
     }
   }
+}
+
+// The irreversible action a move falls under, if it still needs a second detective.
+export function councilNeeded(pack: CasePack, state: GameState, payload: CouncilPayload) {
+  if (payload.kind === "present") {
+    if (payload.presented.length === 0) return undefined;
+    return pack.irreversible.find((r) => r.action.kind === "present" && r.action.character === payload.character);
+  }
+  return searchGate(pack, state, payload.container);
+}
+
+// A location that must not be searched without a second detective's consent.
+export function searchGate(pack: CasePack, state: GameState, container: string) {
+  return pack.irreversible.find(
+    (r) => r.action.kind === "openContainer" && r.action.container === container && !state.approved.has(r.id),
+  );
 }
 
 // Director-side mutations, used by events. Kept here so state invariants live in one place.

@@ -18,6 +18,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
   const [picking, setPicking] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const lines = view.calls[contact.id] ?? [];
   const end = useRef<HTMLDivElement>(null);
 
@@ -32,9 +33,11 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     if (!question.trim() && presenting.length === 0) return;
     setWaiting(true);
     setError(null);
+    setNotice(null);
     const res = await ask({ character: contact.id, question, presented: presenting, shared });
     setWaiting(false);
     if (!res.ok) return setError(res.error);
+    if (res.kind === "council") setNotice(res.text);
     setQuestion("");
     setPresenting([]);
   };
@@ -109,6 +112,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
         <label className="small muted toggle">
           <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} /> Speakerphone — the whole team hears
         </label>
+        {notice && <p className="small notice">{notice}</p>}
         {error && <p className="error">{error}</p>}
       </footer>
     </div>
