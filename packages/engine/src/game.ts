@@ -105,7 +105,7 @@ export interface GameState {
 
 export type Action =
   | { type: "join"; player: string; name: string }
-  | { type: "start" }
+  | { type: "start"; demo?: boolean }
   | { type: "unlock"; player: string; container: string; password: string }
   | { type: "open"; player: string; item: string }
   | { type: "post"; player: string; item: string; note?: string }
@@ -238,7 +238,17 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
       state.inbox.set(p.id, []);
       state.unlocked.set(p.id, new Set());
     }
-    log(state, now, "start", undefined, { players: String(state.players.length) });
+    if (action.demo && pack.demo) {
+      const demo = pack.demo;
+      state.startedAt = now - demo.minutesAhead * 60_000;
+      for (const p of state.players) for (const c of demo.unlock) state.unlocked.get(p.id)!.add(c);
+      demo.board.forEach((item, i) => {
+        const by = state.players[i % state.players.length]!.id;
+        state.board.push({ item, postedBy: by, at: now });
+      });
+      for (const e of demo.fired) state.fired.add(e);
+    }
+    log(state, now, "start", undefined, { players: String(state.players.length), demo: action.demo ? "yes" : undefined });
     return { ok: true };
   }
 

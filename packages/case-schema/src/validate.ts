@@ -120,6 +120,12 @@ export function validateCasePack(input: unknown): ValidationResult {
   pack.accusation.motiveClaims.forEach((c) => need(claims, c, "claim", "accusation.motiveClaims"));
   need(characters, pack.reconstruction.narrator, "character", "reconstruction.narrator");
 
+  if (pack.demo) {
+    pack.demo.unlock.forEach((c) => need(containers, c, "container", "demo.unlock"));
+    pack.demo.board.forEach((i) => need(items, i, "item", "demo.board"));
+    pack.demo.fired.forEach((e) => need(new Set(pack.events.map((x) => x.id)), e, "event", "demo.fired"));
+  }
+
   if (pack.meta.players.min > pack.meta.players.max) errors.push("meta.players.min exceeds max");
 
   return errors.length ? { ok: false, errors } : { ok: true, pack };

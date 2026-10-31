@@ -94,9 +94,13 @@ describe("director", () => {
     expect(inbox(state, "p0")).toContain("A well-wisher");
   });
 
-  it("requests the verdict once the key evidence is on the Board", () => {
+  it("requests the verdict once Marina is alerted and the key evidence is on the Board", () => {
     const state = started();
     state.fired.add("act_two");
+    apply(pack, state, { type: "post", player: "p1", item: "m13" }, min(5));
+    apply(pack, state, { type: "post", player: "p0", item: "p3" }, min(5));
+    expect(tick(pack, state, min(5))).not.toContain("verdict_requested");
+    state.flags.add("marina_alerted");
     apply(pack, state, { type: "post", player: "p1", item: "m13" }, min(5));
     apply(pack, state, { type: "post", player: "p0", item: "p3" }, min(5));
     expect(tick(pack, state, min(5))).toContain("verdict_requested");

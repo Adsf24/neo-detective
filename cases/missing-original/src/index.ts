@@ -445,7 +445,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Archive, shelf 2 — Wednesday morning",
-      src: "media/p1.jpg",
+      src: "media/p1.svg",
       caption: "Catalogue shot of No.14, front and back",
       alt: "Folder No.14 open on the shelf; the print shown face up, then its back with a faint pencil mark in the lower right corner",
       exif: { author: "Oliver Vance", takenAt: "Wed 09:40" },
@@ -458,7 +458,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Archive, shelf 2 — Thursday",
-      src: "media/p2.jpg",
+      src: "media/p2.svg",
       caption: "Same folder, same print, front and back",
       alt: "Folder No.14 with the print face up, then its back — bright white, no marks",
       exif: { author: "Paul Grant", takenAt: "Thu 08:55" },
@@ -471,7 +471,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Packing table — Wednesday evening",
-      src: "media/p3.jpg",
+      src: "media/p3.svg",
       caption: "For the accounts: today's delivery",
       alt: "A table with boxes and paper rolls; offcuts of paper; behind it a cabinet with its door ajar",
       exif: { author: "Paul Grant", takenAt: "Wed 18:45" },
@@ -487,7 +487,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Entrance — doorbell camera",
-      src: "media/p4.jpg",
+      src: "media/p4.svg",
       caption: "Wed 11:22",
       alt: "A courier with boxes at the door; Marina opening it",
       exif: { author: "Doorbell camera", takenAt: "Wed 11:22" },
@@ -498,7 +498,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Hall 1",
-      src: "media/p5.jpg",
+      src: "media/p5.svg",
       caption: "Current hang",
       alt: "Gallery hall with framed photographs on white walls",
       exif: { author: "Oliver Vance", takenAt: "Thu, Oct 22" },
@@ -508,7 +508,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Hall 2",
-      src: "media/p6.jpg",
+      src: "media/p6.svg",
       caption: "Paul and Marina discussing a label",
       alt: "Paul and Marina standing by a wall label in the second hall",
       exif: { author: "Oliver Vance", takenAt: "Thu, Oct 22" },
@@ -874,10 +874,13 @@ export const missingOriginal: CasePackInput = {
     {
       id: "verdict_requested",
       type: "mandatory",
+      // Only once Marina knows she is being looked at: the team has to have
+      // confronted her before the owner asks for an answer.
       when: {
         any: [
           {
             all: [
+              { flag: "marina_alerted" },
               { any: [{ onBoard: "m13" }, { onBoard: "m13_trash" }, { onBoard: "c02" }] },
               { any: [{ onBoard: "p2" }, { onBoard: "p3" }, { onBoard: "original_found" }] },
             ],
@@ -975,6 +978,15 @@ export const missingOriginal: CasePackInput = {
     motiveClaims: ["cl_motive"],
     minSourcesPerClaim: 1,
     minItems: 3,
+  },
+
+  // Demo start: eight minutes in, computer open, the access log, change log and
+  // both archive photos already on the Board — right before confronting Marina.
+  demo: {
+    minutesAhead: 8,
+    unlock: ["computer"],
+    board: ["c03", "c02", "p1", "p2"],
+    fired: ["oliver_reaches_out"],
   },
 
   reconstruction: {
