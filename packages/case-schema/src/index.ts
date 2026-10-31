@@ -53,6 +53,7 @@ export const ContainerSchema = z.object({
   password: z.string().optional(),
   access: z.union([z.literal("all"), z.array(SlotId).min(1)]),
   unlockedBy: ConditionSchema.optional(), // hidden until true (e.g. a cabinet noticed on a photo)
+  scene: z.string().optional(), // establishing shot shown behind the location
 });
 
 const ItemBase = {
@@ -103,6 +104,20 @@ export const ItemSchema = z.discriminatedUnion("kind", [
     caption: z.string(),
     exif: z.object({ author: z.string(), takenAt: z.string() }),
     hotspots: z.array(HotspotSchema).default([]),
+    // Evidence details drawn over the photo by the client, never by an image
+    // generator: x/y in percent of the image, size in percent of its width.
+    marks: z
+      .array(
+        z.object({
+          text: z.string(),
+          x: z.number(),
+          y: z.number(),
+          size: z.number().positive(),
+          rotate: z.number().default(0),
+          style: z.enum(["pencil", "emboss", "ink"]),
+        }),
+      )
+      .default([]),
     alt: z.string(),
   }),
   z.object({
@@ -148,6 +163,7 @@ export const CharacterSchema = z.object({
     cooldownMinutes: z.number().min(0),
   }),
   channel: z.enum(["voice", "text"]),
+  portrait: z.string().optional(), // close-up used on calls
 });
 
 // ---------- Players ----------
@@ -227,15 +243,16 @@ export const CasePackSchema = z.object({
     language: z.string().min(2),
     players: z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
     minutes: z.number().int().positive(),
+    cover: z.string().optional(), // title shot
   }),
-  briefing: z.object({ title: z.string(), text: z.string() }),
+  briefing: z.object({ title: z.string(), text: z.string(), image: z.string().optional() }),
   truth: z.object({
     summary: z.string(),
     culprit: Id,
     timeline: z.array(z.object({ time: z.string(), event: z.string() })).min(1),
   }),
   facts: z.array(z.object({ id: Id, statement: z.string() })).min(1),
-  acts: z.array(z.object({ id: Id, title: z.string() })).min(1),
+  acts: z.array(z.object({ id: Id, title: z.string(), image: z.string().optional() })).min(1),
   containers: z.array(ContainerSchema).min(1),
   items: z.array(ItemSchema).min(1),
   characters: z.array(CharacterSchema).min(1),
@@ -245,7 +262,7 @@ export const CasePackSchema = z.object({
   irreversible: z.array(IrreversibleSchema).default([]),
   claims: z.array(ClaimSchema).min(1),
   accusation: AccusationSchema,
-  reconstruction: z.object({ narrator: Id, text: z.string(), reveals: z.array(z.string()).default([]) }),
+  reconstruction: z.object({ narrator: Id, text: z.string(), reveals: z.array(z.string()).default([]), image: z.string().optional() }),
   // Optional "skip ahead" start for demos: a game already a few minutes in.
   demo: z
     .object({

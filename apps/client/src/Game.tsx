@@ -2,6 +2,7 @@ import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AskResult, ClientAction } from "../../server/src/protocol";
 import { CallScreen } from "./CallScreen";
+import { Backdrop, Portrait, useWide } from "./Cinematic";
 import { ActTransition, CouncilBanner } from "./Collective";
 import { Debrief, Verdict } from "./Finale";
 import { buzz, flash, isMuted, play, setMuted } from "./fx";
@@ -27,10 +28,12 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
   const items = useMemo(() => new Map(view.items.map((i) => [i.id, i])), [view.items]);
   const playerName = (id: string) => view.players.find((p) => p.id === id)?.name ?? "Someone";
   const toasts = useWorldReactions(view, playerName);
+  const wide = useWide();
 
   if (!briefed) {
     return (
       <main className="screen briefing">
+        <Backdrop src={view.briefing.image} rain dim={0.5} />
         <article className="letter">
           <p className="eyebrow">The case of</p>
           <h1 className="display">{view.title}</h1>
@@ -74,17 +77,67 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
   // their state while the player moves between screens.
   const contact = calling ? view.contacts.find((c) => c.id === calling) : undefined;
   const openItem = open ? items.get(open) : undefined;
-  let screen;
-  if (contact) {
-    screen = <CallScreen contact={contact} view={view} items={items} ask={ask} onClose={() => setCalling(null)} playerName={playerName} />;
-  } else if (openItem) {
-    screen = <ItemDetail item={openItem} view={view} act={act} onClose={() => setOpen(null)} playerName={playerName} />;
-  } else {
-    screen = renderMain();
+  const sceneOf = (container?: string): string | undefined => {
+    const c = view.containers.find((x) => x.id === container);
+    return c?.scene ?? (c?.parent ? sceneOf(c.parent) : undefined);
+  };
+  const stage = (openItem && sceneOf(openItem.container)) || view.act.image || view.cover;
+
+  const call = contact && (
+    <CallScreen contact={contact} view={view} items={items} ask={ask} onClose={() => setCalling(null)} playerName={playerName} />
+  );
+  const detail = openItem && <ItemDetail item={openItem} view={view} act={act} onClose={() => setOpen(null)} playerName={playerName} />;
+  const header = (
+    <header className="topbar plate">
+      <span className="plate-title">{view.title}</span>
+      <span className="topbar-right">
+        <SoundToggle />
+        <span className="act-ribbon" key={view.act.id}>
+          {view.act.title}
+        </span>
+      </span>
+    </header>
+  );
+  const errorLine = error && (
+    <p className="error" role="alert" onClick={clearError}>
+      {error}
+    </p>
+  );
+
+  // Desktop: one investigation room — locations and people on the left, the
+  // scene or the evidence in the middle, the Board on the right.
+  if (wide) {
+    return (
+      <>
+        {shared}
+        <Backdrop src={contact?.portrait ?? stage} dim={contact ? 0.78 : 0.6} />
+        <div className="room">
+          {header}
+          {errorLine}
+          <aside className="pane left" aria-label="World">
+            <World view={view} items={items} act={act} onOpen={(id) => { setCalling(null); setOpen(id); }} onCall={(id) => { setOpen(null); setCalling(id); }} />
+          </aside>
+          <section className="pane center" key={contact?.id ?? openItem?.id ?? "stage"}>
+            {call ?? detail ?? <Stage view={view} />}
+          </section>
+          <aside className="pane right" aria-label="Board and inbox">
+            <Board view={view} items={items} act={act} onOpen={(id) => { setCalling(null); setOpen(id); }} playerName={playerName} />
+            <Inbox view={view} />
+          </aside>
+        </div>
+        <Toasts toasts={toasts} />
+      </>
+    );
   }
+
+  let screen;
+  if (call) screen = call;
+  else if (detail) screen = detail;
+  else screen = renderMain();
   return (
     <>
       {shared}
+      <Backdrop src={contact?.portrait ?? stage} dim={contact ? 0.8 : 0.66} />
       {screen}
       <Toasts toasts={toasts} />
     </>
@@ -93,20 +146,8 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
   function renderMain() {
     return (
     <div className="app">
-      <header className="topbar plate">
-        <span className="plate-title">{view.title}</span>
-        <span className="topbar-right">
-          <SoundToggle />
-          <span className="act-ribbon" key={view.act.id}>
-            {view.act.title}
-          </span>
-        </span>
-      </header>
-      {error && (
-        <p className="error" role="alert" onClick={clearError}>
-          {error}
-        </p>
-      )}
+      {header}
+      {errorLine}
       <main className="content" key={tab}>
         {tab === "world" && <World view={view} items={items} act={act} onOpen={setOpen} onCall={setCalling} />}
         {tab === "board" && <Board view={view} items={items} act={act} onOpen={setOpen} playerName={playerName} />}
@@ -129,6 +170,17 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
     </div>
     );
   }
+}
+
+// The middle of the desktop room when nothing is open: the scene itself.
+function Stage({ view }: { view: PlayerView }) {
+  return (
+    <div className="stage">
+      <p className="eyebrow">Act · {view.act.title}</p>
+      <h1 className="display stage-title">{view.title}</h1>
+      <p className="stage-hint">Open a place or call someone on the left. Pin what matters to the Board on the right — the accusation can only use what is pinned.</p>
+    </div>
+  );
 }
 
 // U+FE0E asks for the text glyph, not an emoji, on phones.
@@ -183,10 +235,13 @@ function World({
 
       {top.map((c) => (
         <section key={c.id} className={revealed.has(c.id) ? "doors-open" : undefined}>
-          <h2>
-            {c.kind === "computer" ? "⌨ " : c.kind === "gallery" ? "◉ " : c.kind === "location" ? "⚲ " : ""}
-            {c.title}
-          </h2>
+          {c.scene ? (
+            <div className="scene-banner" style={{ backgroundImage: `url(/${c.scene})` }}>
+              <h2>{c.title}</h2>
+            </div>
+          ) : (
+            <h2>{c.title}</h2>
+          )}
           {c.needsCouncil ? (
             <button className="wide" onClick={() => void act({ type: "councilRequest", payload: { kind: "search", container: c.id } })}>
               Search — needs a second detective
@@ -225,12 +280,7 @@ function World({
         <ul className="list">
           {view.contacts.map((c) => (
             <li key={c.id} className="contact">
-              <span className="medallion" aria-hidden="true">
-                {c.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")}
-              </span>
+              <Portrait src={c.portrait} name={c.name} size="sm" />
               <span className="contact-name">
                 {c.name}
                 <span className="muted small">{c.role}</span>

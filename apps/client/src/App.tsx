@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
+import { Backdrop, FilmGrain } from "./Cinematic";
 import { Game } from "./Game";
 import { useGame } from "./useGame";
 
@@ -15,8 +16,12 @@ function newRoomCode(): string {
 
 export function App() {
   const room = roomFromUrl();
-  if (!room) return <Landing />;
-  return <Room room={room} />;
+  return (
+    <>
+      <FilmGrain />
+      {room ? <Room room={room} /> : <Landing />}
+    </>
+  );
 }
 
 function Landing() {
@@ -79,6 +84,7 @@ function Room({ room }: { room: string }) {
     const link = window.location.href;
     return (
       <main className="screen">
+        <Backdrop src={view.cover} dim={0.55} />
         <p className="eyebrow">Room {room}</p>
         <h1 className="display">{view.title}</h1>
         <p className="muted">Scan to join, or share the link:</p>

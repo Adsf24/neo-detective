@@ -21,6 +21,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [push, setPush] = useState(0);
   const lines = view.calls[contact.id] ?? [];
   const end = useRef<HTMLDivElement>(null);
   const [listening, setListening] = useState(false);
@@ -58,6 +59,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     if (res.kind === "council") setNotice(res.text);
     // The witness gave something away: make the moment land.
     if (res.kind === "reply" && res.newly.length > 0) {
+      setPush((n) => n + 1);
       play("reveal");
       buzz([20, 50, 40]);
       flash("gold");
@@ -81,15 +83,26 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
         </span>
       </header>
       <main className="content transcript" aria-label="Transcript">
-        <div className="caller-card">
-          <span className="medallion big" aria-hidden="true">
-            {contact.name
-              .split(" ")
-              .map((w) => w[0])
-              .join("")}
-          </span>
-          <p className="muted small">{contact.role}</p>
-        </div>
+        {contact.portrait ? (
+          <div className={`call-hero${push ? " push" : ""}`} key={push}>
+            <div className="call-portrait" style={{ backgroundImage: `url(/${contact.portrait})` }} />
+            <div className="call-caption">
+              <span className="live-dot" aria-hidden="true" /> On the line
+              <strong>{contact.name}</strong>
+              <span className="muted small">{contact.role}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="caller-card">
+            <span className="medallion big" aria-hidden="true">
+              {contact.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")}
+            </span>
+            <p className="muted small">{contact.role}</p>
+          </div>
+        )}
         {lines.map((l, i) => (
           <div key={i} className="exchange">
             <p className="q">

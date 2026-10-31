@@ -1,5 +1,6 @@
 import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useState } from "react";
+import { Backdrop } from "./Cinematic";
 import { burst, play } from "./fx";
 import type { ClientAction } from "../../server/src/protocol";
 
@@ -14,6 +15,8 @@ export function Verdict({ view, items, act, playerName }: { view: PlayerView; it
 
   return (
     <div className="overlay curtain" role="dialog" aria-label="Verdict">
+      {view.cover && <div className="overlay-shot" style={{ backgroundImage: `url(/${view.cover})` }} aria-hidden="true" />}
+      <div className="letterbox on" aria-hidden="true" />
       <main className="screen">
         <p className="eyebrow">The verdict</p>
         {!v.revealed ? (
@@ -139,6 +142,7 @@ export function Debrief({ view, items, playerName }: { view: PlayerView; items: 
   const accused = view.suspects.find((s) => s.id === d.accusation.who)?.name ?? d.accusation.who;
   return (
     <main className="screen debrief">
+      <Backdrop src={d.reconstruction.image} dim={0.72} />
       <p className="eyebrow">Debrief</p>
       <h1 className={`verdict-stamp outcome-${d.score.outcome}`}>{headline}</h1>
       <p>
@@ -162,6 +166,9 @@ export function Debrief({ view, items, playerName }: { view: PlayerView; items: 
       )}
 
       <h2>What really happened — {d.reconstruction.narrator}</h2>
+      {d.reconstruction.portrait && (
+        <div className="confession-portrait" style={{ backgroundImage: `url(/${d.reconstruction.portrait})` }} aria-hidden="true" />
+      )}
       {d.reconstruction.text.split("\n\n").map((p, i) => (
         <p key={i} className="quote">
           {p}
