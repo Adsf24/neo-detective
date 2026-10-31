@@ -52,3 +52,32 @@ describe("Rooms", () => {
     expect(await rooms.ask("r", "b", { character: "marina", question: "Where were you?", presented: [], shared: false }, T0)).toMatchObject({ kind: "reply" });
   });
 });
+
+describe("credit guard", () => {
+  class SlowProvider extends ScriptedProvider {
+    override async complete(req: Parameters<ScriptedProvider["complete"]>[0]) {
+      await new Promise((r) => setTimeout(r, 20));
+      return super.complete(req);
+    }
+  }
+
+  it("lets a player ask one question at a time", async () => {
+    const rooms = new Rooms(pack, new SlowProvider());
+    for (const id of ["a", "b", "c"]) await rooms.act("r", { type: "join", player: id, name: id }, T0);
+    await rooms.act("r", { type: "start" }, T0);
+    const q = { character: "marina", question: "Where were you?", presented: [], shared: false };
+    const [first, second] = await Promise.all([rooms.ask("r", "a", q, T0), rooms.ask("r", "a", q, T0)]);
+    expect(first).toMatchObject({ ok: true });
+    expect(second).toMatchObject({ ok: false, error: "Wait for the answer first." });
+  });
+
+  it("caps questions per minute per room", async () => {
+    const rooms = new Rooms(pack, new ScriptedProvider());
+    for (const id of ["a", "b", "c"]) await rooms.act("r", { type: "join", player: id, name: id }, T0);
+    await rooms.act("r", { type: "start" }, T0);
+    const q = { character: "paul", question: "Where were you?", presented: [], shared: false };
+    for (let i = 0; i < 30; i++) expect(await rooms.ask("r", "a", q, T0 + i)).toMatchObject({ ok: true });
+    expect(await rooms.ask("r", "a", q, T0 + 31)).toMatchObject({ ok: false });
+    expect(await rooms.ask("r", "a", q, T0 + 61_000)).toMatchObject({ ok: true });
+  });
+});

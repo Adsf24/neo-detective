@@ -18,7 +18,20 @@ export interface Room {
   code: string;
   pack: CasePack;
   state: GameState;
+  lastActive: number;
+  asks: number[]; // timestamps of recent questions, for the per-minute limit
+  askTotal: number;
+  busy: Set<string>; // players waiting for an answer
 }
+
+// Credit guard. A public link must not be able to burn the model budget.
+export const LIMITS = {
+  askPerMinute: Number(process.env.LIMIT_ASK_PER_MINUTE ?? 30),
+  askPerRoom: Number(process.env.LIMIT_ASK_PER_ROOM ?? 400),
+  concurrent: Number(process.env.LIMIT_CONCURRENT_ASKS ?? 12),
+  rooms: Number(process.env.LIMIT_ROOMS ?? 200),
+  idleMs: Number(process.env.ROOM_IDLE_HOURS ?? 6) * 3_600_000,
+};
 
 export interface AskPayload {
   character: string;
@@ -32,19 +45,31 @@ export interface AskPayload {
 // an irreversible presentation, and the director tick after every change.
 export class Rooms {
   private readonly rooms = new Map<string, Room>();
+  private inFlight = 0;
 
   constructor(
     private readonly pack: CasePack,
     private readonly llm: LlmProvider,
   ) {}
 
-  get(code: string): Room {
+  get(code: string, now = Date.now()): Room {
     let room = this.rooms.get(code);
     if (!room) {
-      room = { code, pack: this.pack, state: createGame(this.pack) };
+      this.evict(now);
+      room = { code, pack: this.pack, state: createGame(this.pack), lastActive: now, asks: [], askTotal: 0, busy: new Set() };
       this.rooms.set(code, room);
     }
+    room.lastActive = now;
     return room;
+  }
+
+  // Drop rooms nobody has touched for a while, and the oldest if still full.
+  private evict(now: number) {
+    for (const [code, r] of this.rooms) if (now - r.lastActive > LIMITS.idleMs) this.rooms.delete(code);
+    while (this.rooms.size >= LIMITS.rooms) {
+      const oldest = [...this.rooms.values()].sort((a, b) => a.lastActive - b.lastActive)[0]!;
+      this.rooms.delete(oldest.code);
+    }
   }
 
   codes(): string[] {
@@ -72,7 +97,25 @@ export class Rooms {
   }
 
   async ask(code: string, player: string, payload: AskPayload, now = Date.now()): Promise<AskResult> {
-    const room = this.get(code);
+    const room = this.get(code, now);
+    if (room.busy.has(player)) return { ok: false, error: "Wait for the answer first." };
+    room.asks = room.asks.filter((t) => now - t < 60_000);
+    if (room.asks.length >= LIMITS.askPerMinute) return { ok: false, error: "The line is busy. Give it a few seconds." };
+    if (room.askTotal >= LIMITS.askPerRoom) return { ok: false, error: "This case has used up its calls. Time to accuse." };
+    if (this.inFlight >= LIMITS.concurrent) return { ok: false, error: "All lines are busy. Try again in a moment." };
+    room.asks.push(now);
+    room.askTotal += 1;
+    room.busy.add(player);
+    this.inFlight += 1;
+    try {
+      return await this.askUnguarded(room, player, payload, now);
+    } finally {
+      room.busy.delete(player);
+      this.inFlight -= 1;
+    }
+  }
+
+  private async askUnguarded(room: Room, player: string, payload: AskPayload, now: number): Promise<AskResult> {
     const presented = payload.presented.filter((id) => {
       const item = room.pack.items.find((i) => i.id === id);
       return item && itemVisible(room.pack, room.state, player, item, now);
