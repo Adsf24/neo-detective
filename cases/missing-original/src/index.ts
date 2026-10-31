@@ -17,10 +17,12 @@ export const missingOriginal: CasePackInput = {
     language: "en",
     players: { min: 3, max: 4 },
     minutes: 35,
+    cover: "media/art/title.jpg",
   },
 
   briefing: {
     title: "Thursday, 9:15 a.m. Lumen Gallery.",
+    image: "media/art/exterior.jpg",
     text: [
       "Paul Grant, the owner of a small photography gallery, opened folder No.14 this morning and knew at once: “The Embankment” is not the same print. The paper is lighter. The pencil mark on the back is gone. It is a copy.",
       "Yesterday morning the technician photographed the archive for the catalogue — the original was there.",
@@ -66,21 +68,22 @@ export const missingOriginal: CasePackInput = {
   ],
 
   acts: [
-    { id: "act1", title: "The Swap" },
-    { id: "act2", title: "Pressure" },
+    { id: "act1", title: "The Swap", image: "media/art/archive.jpg" },
+    { id: "act2", title: "Pressure", image: "media/art/interlude.jpg" },
   ],
 
   containers: [
     { id: "personal", kind: "personal", title: "Your materials", access: "all" },
-    { id: "computer", kind: "computer", title: "Gallery computer", password: "PG-1962", access: "all" },
+    { id: "computer", kind: "computer", title: "Gallery computer", password: "PG-1962", access: "all", scene: "media/art/office.jpg" },
     { id: "mail_info", kind: "mailbox", title: "info@lumengallery.example", parent: "computer", access: "all" },
     { id: "mail_marina", kind: "mailbox", title: "m.cole@lumengallery.example", parent: "computer", access: "all" },
-    { id: "gallery", kind: "gallery", title: "Photos", access: ["A"] },
+    { id: "gallery", kind: "gallery", title: "Photos", access: ["A"], scene: "media/art/archive.jpg" },
     {
       id: "packing_cabinet",
       kind: "location",
       title: "Packing room cabinet",
       access: "all",
+      scene: "media/art/packing.jpg",
       unlockedBy: { any: [{ flag: "cabinet_noticed" }, { flag: "original_location_known" }] },
     },
   ],
@@ -445,12 +448,13 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Archive, shelf 2 — Wednesday morning",
-      src: "media/p1.svg",
+      src: "media/art/p1.jpg",
       caption: "Catalogue shot of No.14, front and back",
       alt: "Folder No.14 open on the shelf; the print shown face up, then its back with a faint pencil mark in the lower right corner",
       exif: { author: "Oliver Vance", takenAt: "Wed 09:40" },
       time: wed("09:40"),
-      hotspots: [{ id: "p1_mark", label: "Pencil mark: “No.14 / HL”, slightly yellowed paper edge", x: 70, y: 78, w: 18, h: 10, minZoom: 3 }],
+      hotspots: [{ id: "p1_mark", label: "Pencil mark: “No.14 / HL”, slightly yellowed paper edge", x: 72, y: 74, w: 18, h: 13, minZoom: 3 }],
+      marks: [{ text: "No.14 / HL", x: 81, y: 81, size: 1.15, rotate: -4, style: "pencil" }],
       evidences: ["f_original_morning"],
     },
     {
@@ -458,12 +462,12 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Archive, shelf 2 — Thursday",
-      src: "media/p2.svg",
+      src: "media/art/p2.jpg",
       caption: "Same folder, same print, front and back",
       alt: "Folder No.14 with the print face up, then its back — bright white, no marks",
       exif: { author: "Paul Grant", takenAt: "Thu 08:55" },
       time: thu("08:55"),
-      hotspots: [{ id: "p2_back", label: "The back is clean: no pencil mark, bright white paper", x: 70, y: 78, w: 18, h: 10, minZoom: 3 }],
+      hotspots: [{ id: "p2_back", label: "The back is clean: no pencil mark, bright white paper", x: 72, y: 74, w: 18, h: 13, minZoom: 3 }],
       evidences: ["f_swap_window"],
     },
     {
@@ -471,15 +475,17 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Packing table — Wednesday evening",
-      src: "media/p3.svg",
+      src: "media/art/p3.jpg",
       caption: "For the accounts: today's delivery",
       alt: "A table with boxes and paper rolls; offcuts of paper; behind it a cabinet with its door ajar",
       exif: { author: "Paul Grant", takenAt: "Wed 18:45" },
       time: wed("18:45"),
       hotspots: [
-        { id: "p3_envelope", label: "Under a sheet of paper: the corner of a cream envelope embossed “R.S.”", x: 22, y: 58, w: 14, h: 10, minZoom: 3, setsFlag: "envelope_noticed" },
-        { id: "p3_cabinet", label: "In the half-open cabinet: a flat parcel in packing paper on a shelf", x: 74, y: 30, w: 16, h: 22, minZoom: 2.5, setsFlag: "cabinet_noticed" },
+        { id: "p3_envelope", label: "Under a sheet of paper: the corner of a cream envelope embossed “R.S.”", x: 0, y: 66, w: 15, h: 16, minZoom: 3, setsFlag: "envelope_noticed" },
+        { id: "p3_cabinet", label: "In the half-open cabinet: a flat parcel in packing paper on a shelf", x: 68, y: 27, w: 15, h: 15, minZoom: 2.5, setsFlag: "cabinet_noticed" },
       ],
+      marks: [{ text: "R.S.", x: 6.5, y: 75, size: 1.05, rotate: 14, style: "emboss" }],
+
       evidences: ["f_envelope"],
     },
     {
@@ -487,7 +493,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Entrance — doorbell camera",
-      src: "media/p4.svg",
+      src: "media/art/p4.jpg",
       caption: "Wed 11:22",
       alt: "A courier with boxes at the door; Marina opening it",
       exif: { author: "Doorbell camera", takenAt: "Wed 11:22" },
@@ -498,7 +504,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Hall 1",
-      src: "media/p5.svg",
+      src: "media/art/p5.jpg",
       caption: "Current hang",
       alt: "Gallery hall with framed photographs on white walls",
       exif: { author: "Oliver Vance", takenAt: "Thu, Oct 22" },
@@ -508,7 +514,7 @@ export const missingOriginal: CasePackInput = {
       container: "gallery",
       kind: "photo",
       title: "Hall 2",
-      src: "media/p6.svg",
+      src: "media/art/p6.jpg",
       caption: "Paul and Marina discussing a label",
       alt: "Paul and Marina standing by a wall label in the second hall",
       exif: { author: "Oliver Vance", takenAt: "Thu, Oct 22" },
@@ -650,6 +656,7 @@ export const missingOriginal: CasePackInput = {
         cooldownMinutes: 5,
       },
       channel: "voice",
+      portrait: "media/art/marina.jpg",
     },
     {
       id: "oliver",
@@ -712,6 +719,7 @@ export const missingOriginal: CasePackInput = {
       refusal: "I agreed to talk to one person only. Ask them to call me.",
       pressure: { limit: 4, endLine: "I've told you what I know. I've got shoots to process.", cooldownMinutes: 3 },
       channel: "voice",
+      portrait: "media/art/oliver.jpg",
     },
     {
       id: "paul",
@@ -763,6 +771,7 @@ export const missingOriginal: CasePackInput = {
       refusal: "Not now, please.",
       pressure: { limit: 3, endLine: "I won't be interrogated in my own gallery. Call me when you've calmed down.", cooldownMinutes: 5 },
       channel: "text",
+      portrait: "media/art/paul.jpg",
     },
   ],
 
@@ -992,6 +1001,7 @@ export const missingOriginal: CasePackInput = {
 
   reconstruction: {
     narrator: "marina",
+    image: "media/art/packing.jpg",
     text: [
       "Stern wrote five days before. I answered “not for sale” — and called him that same evening. He named a sum. Three years of my life.",
       "He sent the copy ahead, a good one, on modern paper, with the courier and the packing supplies on Wednesday. When Oliver left and Paul went to the insurer, I took the original out, put the copy in, wrapped the original and put it in the cabinet. I looked up how to pack it. Ridiculous.",

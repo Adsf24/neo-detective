@@ -971,3 +971,218 @@ button:active { transform: translateY(2px) scale(0.97); filter: brightness(1.08)
 @media (prefers-reduced-motion: reduce) {
   .fx-layer, .fx-ghost, .fx-flash, .doors-open::before, .doors-open::after { display: none; }
 }
+
+/* ===================== Cinematic layer ===================== */
+
+/* The photograph replaces the painted oak: the desk is now a real room. */
+body { background: #07050a; }
+body::before { mix-blend-mode: soft-light; opacity: 0.7; }
+
+.backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.shot {
+  position: absolute;
+  inset: -6%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  animation: shot-in 1.6s ease-out forwards, camera 38s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+.shot:not(.current) { animation: camera 38s ease-in-out infinite alternate; opacity: 1; transition: opacity 1.4s; }
+@keyframes shot-in { to { opacity: 1; } }
+/* A slow dolly: push in and drift, never still. */
+@keyframes camera {
+  0% { transform: scale(1.02) translate(0, 0); }
+  50% { transform: scale(1.09) translate(-1.6%, -0.8%); }
+  100% { transform: scale(1.05) translate(1.2%, 0.6%); }
+}
+.shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 35%, rgba(0, 0, 0, calc(var(--dim) - 0.35)), rgba(0, 0, 0, calc(var(--dim) + 0.25)) 75%),
+    linear-gradient(180deg, rgba(4, 3, 6, calc(var(--dim) - 0.2)), rgba(4, 3, 6, var(--dim)) 60%, rgba(4, 3, 6, calc(var(--dim) + 0.2)));
+}
+/* Dust drifting through the light */
+.dust {
+  position: absolute;
+  inset: -50%;
+  background-image:
+    radial-gradient(1.5px 1.5px at 20% 30%, rgba(255, 230, 190, 0.55), transparent),
+    radial-gradient(1px 1px at 70% 60%, rgba(255, 230, 190, 0.45), transparent),
+    radial-gradient(2px 2px at 40% 80%, rgba(255, 220, 170, 0.35), transparent),
+    radial-gradient(1px 1px at 85% 15%, rgba(255, 240, 210, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 55% 45%, rgba(255, 230, 190, 0.4), transparent);
+  background-size: 340px 340px, 260px 260px, 420px 420px, 300px 300px, 380px 380px;
+  animation: dust 60s linear infinite;
+  opacity: 0.8;
+}
+@keyframes dust { to { transform: translate(120px, -260px) rotate(6deg); } }
+.rain {
+  position: absolute;
+  inset: -20%;
+  background-image: repeating-linear-gradient(104deg, transparent 0 9px, rgba(190, 210, 255, 0.12) 9px 10px, transparent 10px 23px);
+  background-size: 100% 220px;
+  animation: rain 0.45s linear infinite;
+  opacity: 0.55;
+}
+@keyframes rain { to { background-position: -40px 220px; } }
+
+/* Film grain on top of everything, very light */
+.grain {
+  position: fixed;
+  inset: -100%;
+  z-index: 70;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  animation: grain 0.9s steps(6) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-3%, 2%); }
+  40% { transform: translate(2%, -4%); }
+  60% { transform: translate(-4%, -1%); }
+  80% { transform: translate(3%, 3%); }
+}
+
+.letterbox::before, .letterbox::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 0;
+  z-index: 11;
+  background: #000;
+  transition: height 0.9s var(--ease-out);
+  pointer-events: none;
+}
+.letterbox::before { top: 0; }
+.letterbox::after { bottom: 0; }
+.letterbox.on::before, .letterbox.on::after { height: 7vh; }
+.overlay .letterbox.on::before, .overlay .letterbox.on::after { animation: bars 0.9s var(--ease-out) both; }
+@keyframes bars { from { height: 0; } }
+
+/* Interfaces float over the shot as smoked glass */
+.app, .screen { position: relative; z-index: 1; }
+.topbar, .tabs, .composer { background: rgba(10, 7, 6, 0.72); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); }
+.contact, .card:not(.telegram), .lockbox { background: rgba(14, 10, 8, 0.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-color: rgba(201, 162, 74, 0.28); }
+
+/* Scene banners above each location */
+.scene-banner {
+  position: relative;
+  height: 128px;
+  margin: 26px 0 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 220, 160, 0.18);
+  animation: banner-in 0.9s var(--ease-out) both;
+}
+.scene-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.75)); }
+.scene-banner h2 { position: absolute; left: 16px; right: 16px; bottom: 8px; margin: 0; color: var(--brass-hi); text-shadow: 0 2px 8px #000; }
+.scene-banner h2::before { display: none; }
+@keyframes banner-in { from { opacity: 0; transform: scale(1.06); filter: brightness(0.3); } }
+
+.portrait-thumb {
+  flex: none;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center 22%;
+  box-shadow: 0 0 0 2px #2a1b11, 0 0 0 3px var(--brass-lo), 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+.portrait-thumb.sm { width: 48px; height: 48px; }
+.portrait-thumb.md { width: 84px; height: 84px; }
+
+/* Evidence marks drawn over photographs */
+.photo { container-type: inline-size; }
+.mark { position: absolute; white-space: nowrap; pointer-events: none; line-height: 1; }
+.mark-pencil { font-family: "Bradley Hand", "Segoe Script", "IM Fell English", cursive; color: rgba(70, 64, 58, 0.78); letter-spacing: 0.02em; }
+.mark-emboss { font-family: Georgia, serif; font-style: italic; font-weight: 600; color: rgba(175, 150, 105, 0.55); text-shadow: -0.04em -0.04em 0 rgba(255, 250, 235, 0.55), 0.04em 0.04em 0 rgba(90, 70, 40, 0.45); }
+.mark-ink { font-family: var(--script); color: rgba(25, 30, 60, 0.8); }
+
+/* ---------- Calls: the close-up ---------- */
+.call-hero { position: relative; height: 46vh; min-height: 260px; margin: -20px -16px 12px; overflow: hidden; }
+.call-portrait {
+  position: absolute;
+  inset: -4%;
+  background-size: cover;
+  background-position: center 25%;
+  animation: shot-in 1.2s ease-out both, breathe 9s ease-in-out infinite alternate;
+}
+.call-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 40%, rgba(7, 5, 10, 0.96)); }
+@keyframes breathe { from { transform: scale(1.02); filter: brightness(0.95); } to { transform: scale(1.07); filter: brightness(1.05); } }
+.call-hero.push .call-portrait { animation: shot-in 0.3s ease-out both, push-in 1.4s var(--ease-out) both; }
+@keyframes push-in {
+  0% { transform: scale(1.04); filter: brightness(1.6) contrast(1.1); }
+  25% { transform: scale(1.16); }
+  100% { transform: scale(1.12); filter: none; }
+}
+.call-caption { position: absolute; left: 16px; right: 16px; bottom: 12px; z-index: 1; display: grid; gap: 2px; font-family: var(--display); letter-spacing: 0.1em; color: var(--muted); font-size: 0.78rem; }
+.call-caption strong { font-weight: 400; font-size: 1.8rem; letter-spacing: 0.02em; color: var(--brass-hi); text-shadow: 0 2px 12px #000; }
+.call-caption .muted { font-family: var(--serif); letter-spacing: 0; font-size: 0.95rem; }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e0412e; box-shadow: 0 0 10px #e0412e; margin-right: 6px; animation: pulse 1.4s infinite; }
+
+/* ---------- Interludes: title cards ---------- */
+.overlay { background: #050307; }
+.overlay-shot {
+  position: fixed;
+  inset: -5%;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.38;
+  filter: saturate(0.85);
+  animation: shot-in 2s ease-out both, camera 30s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.overlay > .screen { position: relative; z-index: 1; padding-top: 9vh; }
+.title-card-cine { display: grid; justify-items: center; gap: 6px; margin: 10px 0 26px; animation: title-in 1.6s var(--ease-out) both; }
+.title-card-cine .act-name { font-family: var(--display); font-size: 2.6rem; color: var(--brass-hi); letter-spacing: 0.12em; text-shadow: 0 0 30px rgba(var(--candle), 0.5); }
+@keyframes title-in { from { opacity: 0; letter-spacing: 0.5em; filter: blur(6px); } }
+
+.debrief .confession-portrait {
+  width: 120px;
+  height: 150px;
+  float: right;
+  margin: 0 0 10px 14px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center 20%;
+  box-shadow: 0 0 0 2px var(--brass-lo), 0 14px 26px rgba(0, 0, 0, 0.6);
+  animation: banner-in 1.2s var(--ease-out) both;
+}
+
+/* ---------- Desktop: the investigation room ---------- */
+.room {
+  position: relative;
+  z-index: 1;
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr) minmax(320px, 400px);
+  grid-template-rows: auto 1fr;
+}
+.room > .topbar { grid-column: 1 / -1; }
+.room > .error { grid-column: 1 / -1; }
+.pane { overflow-y: auto; min-height: 0; padding: 8px 18px 40px; scrollbar-width: thin; scrollbar-color: var(--brass-lo) transparent; }
+.pane.left { background: linear-gradient(90deg, rgba(8, 5, 4, 0.82), rgba(8, 5, 4, 0.55)); border-right: 1px solid rgba(201, 162, 74, 0.2); }
+.pane.right { background: linear-gradient(270deg, rgba(8, 5, 4, 0.82), rgba(8, 5, 4, 0.55)); border-left: 1px solid rgba(201, 162, 74, 0.2); }
+.pane.center { padding: 0; position: relative; animation: page-in 0.4s var(--ease-out); }
+.pane.center > .app { min-height: 100%; }
+.pane.center .content { max-width: 760px; padding-bottom: 40px; }
+.pane.center .topbar { position: sticky; }
+.pane.center .call .transcript { padding-bottom: 20px; }
+.pane.center .composer { position: sticky; bottom: 0; }
+.pane.center .call-hero { margin: -20px -16px 12px; height: 52vh; }
+.pane .cork { padding: 16px 10px; }
+.stage { height: 100%; display: grid; align-content: end; padding: 0 6vw 9vh; text-shadow: 0 2px 16px #000; }
+.stage-title { font-size: clamp(2.6rem, 5vw, 4.6rem); margin: 0.1em 0 0.2em; animation: title-in 1.8s var(--ease-out) both; }
+.stage-hint { max-width: 520px; font-style: italic; color: var(--fg); opacity: 0.85; }
+
+@media (min-width: 1024px) {
+  .tabs { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shot, .call-portrait, .overlay-shot, .dust, .rain, .grain { animation: none !important; opacity: 1; }
+}

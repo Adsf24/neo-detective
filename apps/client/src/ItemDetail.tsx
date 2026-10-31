@@ -158,6 +158,17 @@ function Photo({ item, act }: { item: Extract<ItemView, { kind: "photo" }>; act:
           ) : (
             <img src={`/${item.src}`} alt={item.alt} onError={() => setBroken(true)} />
           )}
+          {!broken &&
+            item.marks.map((m, i) => (
+              <span
+                key={i}
+                className={`mark mark-${m.style}`}
+                style={{ left: `${m.x}%`, top: `${m.y}%`, fontSize: `${m.size}cqw`, transform: `translate(-50%, -50%) rotate(${m.rotate}deg)` }}
+                aria-hidden="true"
+              >
+                {m.text}
+              </span>
+            ))}
           {item.hotspots.map((h) =>
             zoom >= h.minZoom ? (
               <button

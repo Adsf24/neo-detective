@@ -35,6 +35,7 @@ export type ItemView =
       alt: string;
       exif: { author: string; takenAt: string };
       hotspots: { id: string; label: string; x: number; y: number; w: number; h: number; minZoom: number }[];
+      marks: { text: string; x: number; y: number; size: number; rotate: number; style: "pencil" | "emboss" | "ink" }[];
     }
   | { id: string; container: string; title: string; time?: string; sortAt?: string; kind: "finding"; body: string };
 
@@ -45,6 +46,7 @@ export interface ContainerView {
   parent?: string;
   locked: boolean;
   needsCouncil: boolean; // a search that needs a second detective
+  scene?: string;
 }
 
 export interface ContactView {
@@ -53,6 +55,7 @@ export interface ContactView {
   role: string;
   channel: "voice" | "text";
   voice: { gender: "female" | "male"; style: string };
+  portrait?: string;
 }
 
 export interface CallLine {
@@ -75,7 +78,7 @@ export interface DebriefView {
   accusation: { by: string; who: string; what: string; why: string; items: string[] };
   score: Score;
   culpritName: string;
-  reconstruction: { narrator: string; text: string; reveals: string[] };
+  reconstruction: { narrator: string; text: string; reveals: string[]; image?: string; portrait?: string };
   history: TeamHistory;
 }
 
@@ -83,11 +86,12 @@ export interface PlayerView {
   caseId: string;
   title: string;
   phase: GameState["phase"];
-  act: { id: string; title: string };
+  act: { id: string; title: string; image?: string };
+  cover?: string;
   startedAt: number | null;
   me: { id: string; name: string; slot: string; slotLabel: string; intro: string };
   players: { id: string; name: string; slot: string }[];
-  briefing: { title: string; text: string };
+  briefing: { title: string; text: string; image?: string };
   containers: ContainerView[];
   items: ItemView[];
   folder: string[];
@@ -97,8 +101,8 @@ export interface PlayerView {
   inbox: InboxMessage[];
   trash: Record<string, string>; // trashed item -> its trash record, for items the player can see
   calls: Record<string, CallLine[]>; // character -> lines this player heard
-  suspects: { id: string; name: string; role: string }[]; // everyone a version may name
-  transition: { toAct: string; title: string } | null;
+  suspects: { id: string; name: string; role: string; portrait?: string }[]; // everyone a version may name
+  transition: { toAct: string; title: string; image?: string } | null;
   versions: Version[];
   verdictRequested: boolean;
   councils: CouncilView[]; // open requests plus the last few decisions
@@ -124,6 +128,7 @@ export function toItemView(item: Item): ItemView {
         alt: item.alt,
         exif: item.exif,
         hotspots: item.hotspots.map(({ id, label, x, y, w, h, minZoom }) => ({ id, label, x, y, w, h, minZoom })),
+        marks: item.marks,
       };
     case "finding":
       return { ...base, kind: "finding", body: item.body };
@@ -158,6 +163,7 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
           parent: c.parent,
           locked: !containerOpen(pack, state, playerId, c, now),
           needsCouncil: !!searchGate(pack, state, c.id),
+          scene: c.scene,
         }))
     : [];
 
@@ -168,14 +174,15 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
   const contacts = playing
     ? pack.characters
         .filter((c) => contactIds.has(c.id))
-        .map((c) => ({ id: c.id, name: c.name, role: c.role, channel: c.channel, voice: c.voice }))
+        .map((c) => ({ id: c.id, name: c.name, role: c.role, channel: c.channel, voice: c.voice, portrait: c.portrait }))
     : [];
 
   return {
     caseId: pack.meta.id,
     title: pack.meta.title,
     phase: state.phase,
-    act: { id: act.id, title: act.title },
+    act: { id: act.id, title: act.title, image: act.image },
+    cover: pack.meta.cover,
     startedAt: state.startedAt,
     me: { id: me.id, name: me.name, slot: me.slot, slotLabel: slot.label, intro: playing ? slot.intro : "" },
     players: state.players.map((p) => ({ id: p.id, name: p.name, slot: p.slot })),
@@ -188,9 +195,13 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
     notes: [...state.notes],
     inbox: [...(state.inbox.get(playerId) ?? [])],
     trash: Object.fromEntries([...state.trashed].filter(([, record]) => visible.has(record))),
-    suspects: pack.characters.map((c) => ({ id: c.id, name: c.name, role: c.role })),
+    suspects: pack.characters.map((c) => ({ id: c.id, name: c.name, role: c.role, portrait: c.portrait })),
     transition: state.transition
-      ? { toAct: state.transition.toAct, title: pack.acts.find((a) => a.id === state.transition!.toAct)?.title ?? "" }
+      ? {
+          toAct: state.transition.toAct,
+          title: pack.acts.find((a) => a.id === state.transition!.toAct)?.title ?? "",
+          image: pack.acts.find((a) => a.id === state.transition!.toAct)?.image,
+        }
       : null,
     versions: [...state.versions],
     verdictRequested: state.verdictRequested,
@@ -217,6 +228,8 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
               narrator: pack.characters.find((c) => c.id === pack.reconstruction.narrator)!.name,
               text: pack.reconstruction.text,
               reveals: pack.reconstruction.reveals,
+              image: pack.reconstruction.image,
+              portrait: pack.characters.find((c) => c.id === pack.reconstruction.narrator)?.portrait,
             },
             history: teamHistory(pack, state),
           }
