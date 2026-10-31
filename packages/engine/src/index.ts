@@ -3,6 +3,8 @@ export { evaluate, type ConditionContext } from "./conditions";
 export {
   apply,
   containerOpen,
+  councilNeeded,
+  searchGate,
   containerVisible,
   createGame,
   itemVisible,
@@ -14,13 +16,16 @@ export {
   type Action,
   type ApplyResult,
   type BoardCard,
+  type Council,
+  type CouncilPayload,
+  type Version,
   type GameState,
   type InboxMessage,
   type LogEntry,
   type Note,
   type Player,
 } from "./game";
-export { toItemView, viewFor, type CallLine, type ContactView, type ContainerView, type ItemView, type PlayerView } from "./view";
+export { toItemView, viewFor, type CallLine, type ContactView, type CouncilView, type ContainerView, type ItemView, type PlayerView } from "./view";
 export { memoryOf, planTurn, recordReply, type CharacterMemory, type TurnInput, type TurnPlan } from "./contract";
 export {
   characterMessages,
@@ -32,3 +37,4 @@ export {
   type ReplyCheck,
   type ReplyContext,
 } from "./prompt";
+export { recipients, tick } from "./director";

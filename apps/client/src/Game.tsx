@@ -2,6 +2,7 @@ import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
 import { useMemo, useState } from "react";
 import type { AskResult, ClientAction } from "../../server/src/protocol";
 import { CallScreen } from "./CallScreen";
+import { ActTransition, CouncilBanner } from "./Collective";
 import { ItemDetail } from "./ItemDetail";
 
 type Act = (action: ClientAction) => Promise<ApplyResult>;
@@ -42,25 +43,34 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
     );
   }
 
+  const shared = (
+    <>
+      <CouncilBanner view={view} act={act} playerName={playerName} />
+      <ActTransition view={view} items={items} act={act} />
+    </>
+  );
+
+  // `shared` always sits first so the Council banner and the version form keep
+  // their state while the player moves between screens.
   const contact = calling ? view.contacts.find((c) => c.id === calling) : undefined;
-  if (contact) {
-    return <CallScreen contact={contact} view={view} items={items} ask={ask} onClose={() => setCalling(null)} playerName={playerName} />;
-  }
-
   const openItem = open ? items.get(open) : undefined;
-  if (openItem) {
-    return (
-      <ItemDetail
-        item={openItem}
-        view={view}
-        act={act}
-        onClose={() => setOpen(null)}
-        playerName={playerName}
-      />
-    );
+  let screen;
+  if (contact) {
+    screen = <CallScreen contact={contact} view={view} items={items} ask={ask} onClose={() => setCalling(null)} playerName={playerName} />;
+  } else if (openItem) {
+    screen = <ItemDetail item={openItem} view={view} act={act} onClose={() => setOpen(null)} playerName={playerName} />;
+  } else {
+    screen = renderMain();
   }
-
   return (
+    <>
+      {shared}
+      {screen}
+    </>
+  );
+
+  function renderMain() {
+    return (
     <div className="app">
       <header className="topbar">
         <span>{view.title}</span>
@@ -88,7 +98,8 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
         </button>
       </nav>
     </div>
-  );
+    );
+  }
 }
 
 function ItemRow({ item, onOpen }: { item: ItemView; onOpen: (id: string) => void }) {
@@ -137,7 +148,11 @@ function World({
       {top.map((c) => (
         <section key={c.id}>
           <h2>{c.title}</h2>
-          {c.locked ? (
+          {c.needsCouncil ? (
+            <button className="wide" onClick={() => void act({ type: "councilRequest", payload: { kind: "search", container: c.id } })}>
+              Search — needs a second detective
+            </button>
+          ) : c.locked ? (
             <Unlock container={c.id} act={act} />
           ) : (
             <>

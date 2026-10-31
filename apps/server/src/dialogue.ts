@@ -21,7 +21,7 @@ export interface AskInput {
 }
 
 export type AskResult =
-  | { ok: true; kind: "reply" | "refuse" | "unavailable" | "end"; text: string; newly: string[] }
+  | { ok: true; kind: "reply" | "refuse" | "unavailable" | "end" | "council"; text: string; newly: string[] }
   | { ok: false; error: string };
 
 // One question in, one line out:

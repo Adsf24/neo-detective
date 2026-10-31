@@ -1,12 +1,15 @@
 import type { CasePack, Item } from "@neo/case-schema";
 import {
   type BoardCard,
+  type Council,
+  type Version,
   type GameState,
   type InboxMessage,
   type Note,
   containerOpen,
   containerVisible,
   itemVisible,
+  searchGate,
   slotsOf,
 } from "./game";
 
@@ -39,6 +42,7 @@ export interface ContainerView {
   title: string;
   parent?: string;
   locked: boolean;
+  needsCouncil: boolean; // a search that needs a second detective
 }
 
 export interface ContactView {
@@ -54,6 +58,14 @@ export interface CallLine {
   reply: string;
   at: number;
   shared: boolean;
+}
+
+export interface CouncilView {
+  id: string;
+  requestedBy: string;
+  summary: string;
+  risk: string;
+  status: "open" | "approved" | "declined" | "cancelled";
 }
 
 export interface PlayerView {
@@ -74,6 +86,11 @@ export interface PlayerView {
   inbox: InboxMessage[];
   trash: Record<string, string>; // trashed item -> its trash record, for items the player can see
   calls: Record<string, CallLine[]>; // character -> lines this player heard
+  suspects: { id: string; name: string; role: string }[]; // everyone a version may name
+  transition: { toAct: string; title: string } | null;
+  versions: Version[];
+  verdictRequested: boolean;
+  councils: CouncilView[]; // open requests plus the last few decisions
 }
 
 export function toItemView(item: Item): ItemView {
@@ -100,6 +117,16 @@ export function toItemView(item: Item): ItemView {
   }
 }
 
+function councilSummary(pack: CasePack, c: Council): string {
+  const title = (id: string) => pack.items.find((i) => i.id === id)?.title ?? id;
+  const p = c.payload;
+  if (p.kind === "present") {
+    const name = pack.characters.find((x) => x.id === p.character)?.name ?? p.character;
+    return `Show ${p.presented.map(title).join(", ")} to ${name}`;
+  }
+  return `Search ${pack.containers.find((x) => x.id === p.container)?.title ?? "the location"}`;
+}
+
 export function viewFor(pack: CasePack, state: GameState, playerId: string, now: number): PlayerView | null {
   const me = state.players.find((p) => p.id === playerId);
   if (!me) return null;
@@ -111,7 +138,14 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
   const containers: ContainerView[] = playing
     ? pack.containers
         .filter((c) => containerVisible(pack, state, playerId, c, now))
-        .map((c) => ({ id: c.id, kind: c.kind, title: c.title, parent: c.parent, locked: !containerOpen(pack, state, playerId, c, now) }))
+        .map((c) => ({
+          id: c.id,
+          kind: c.kind,
+          title: c.title,
+          parent: c.parent,
+          locked: !containerOpen(pack, state, playerId, c, now),
+          needsCouncil: !!searchGate(pack, state, c.id),
+        }))
     : [];
 
   const items = playing ? pack.items.filter((i) => itemVisible(pack, state, playerId, i, now)).map(toItemView) : [];
@@ -141,6 +175,19 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
     notes: [...state.notes],
     inbox: [...(state.inbox.get(playerId) ?? [])],
     trash: Object.fromEntries([...state.trashed].filter(([, record]) => visible.has(record))),
+    suspects: pack.characters.map((c) => ({ id: c.id, name: c.name, role: c.role })),
+    transition: state.transition
+      ? { toAct: state.transition.toAct, title: pack.acts.find((a) => a.id === state.transition!.toAct)?.title ?? "" }
+      : null,
+    versions: [...state.versions],
+    verdictRequested: state.verdictRequested,
+    councils: state.councils.slice(-5).map((c) => ({
+      id: c.id,
+      requestedBy: c.requestedBy,
+      summary: councilSummary(pack, c),
+      risk: pack.irreversible.find((r) => r.id === c.irreversible)?.risk ?? "",
+      status: c.status,
+    })),
     calls: Object.fromEntries(
       [...state.characters].map(([id, mem]) => [
         id,
