@@ -14,4 +14,6 @@ export interface CompletionRequest {
 export interface LlmProvider {
   readonly name: string;
   complete(req: CompletionRequest): Promise<string>;
+  // Speech to text for 16-bit PCM WAV. Undefined when the provider can't.
+  transcribe?(wav: Buffer): Promise<string>;
 }

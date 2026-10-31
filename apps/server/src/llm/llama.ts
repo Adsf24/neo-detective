@@ -37,4 +37,23 @@ export class LlamaProvider implements LlmProvider {
     if (typeof content !== "string") throw new Error("Llama API returned no content");
     return content;
   }
+
+  // Muse Voice Transcribe: multipart with a JSON "request" part and the audio.
+  async transcribe(wav: Buffer): Promise<string> {
+    const form = new FormData();
+    form.append(
+      "request",
+      new Blob([JSON.stringify({ model: process.env.LLAMA_MODEL_ASR ?? "muse-voice-transcribe-1.0", language: "en", audioEncoding: "WAV" })], { type: "application/json" }),
+    );
+    form.append("audio", new Blob([new Uint8Array(wav)], { type: "audio/wav" }), "question.wav");
+    const res = await fetch(`${this.baseUrl}/asr/transcribe`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.apiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(20_000),
+    });
+    const data = (await res.json()) as { transcript?: string; error?: { message?: string } };
+    if (!res.ok || typeof data.transcript !== "string") throw new Error(`Transcribe ${res.status}: ${data.error?.message ?? "no transcript"}`);
+    return data.transcript.trim();
+  }
 }

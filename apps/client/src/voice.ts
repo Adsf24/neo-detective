@@ -85,3 +85,91 @@ export function speak(text: string, voice: { gender: "female" | "male" }, seed: 
 export function stopSpeaking() {
   if (canSpeak()) speechSynthesis.cancel();
 }
+
+// ---------- Recording for Muse Voice Transcribe ----------
+// Browsers without speech recognition (iPhone Safari, Firefox) record raw PCM
+// through Web Audio, downsampled to 16 kHz mono and wrapped as WAV, which is
+// what the Meta transcription endpoint accepts.
+
+export const canRecord = () =>
+  typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
+
+export async function recordWav(): Promise<{ stop: () => Promise<Blob> }> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+  const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const ctx = new Ctor();
+  const source = ctx.createMediaStreamSource(stream);
+  // ScriptProcessor is deprecated but is the one capture path every browser still has.
+  const node = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks: Float32Array[] = [];
+  node.onaudioprocess = (e) => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  source.connect(node);
+  node.connect(ctx.destination);
+
+  return {
+    async stop() {
+      node.disconnect();
+      source.disconnect();
+      stream.getTracks().forEach((t) => t.stop());
+      const rate = ctx.sampleRate;
+      await ctx.close();
+      return encodeWav(downsample(concat(chunks), rate, 16_000), 16_000);
+    },
+  };
+}
+
+function concat(chunks: Float32Array[]) {
+  const out = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+
+function downsample(data: Float32Array, from: number, to: number) {
+  if (from === to) return data;
+  const ratio = from / to;
+  const out = new Float32Array(Math.floor(data.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    // Average the source samples that fall into this output sample.
+    const start = Math.floor(i * ratio);
+    const end = Math.min(data.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += data[j]!;
+    out[i] = sum / Math.max(1, end - start);
+  }
+  return out;
+}
+
+function encodeWav(samples: Float32Array, rate: number) {
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const str = (o: number, s: string) => [...s].forEach((ch, i) => v.setUint8(o + i, ch.charCodeAt(0)));
+  str(0, "RIFF");
+  v.setUint32(4, 36 + samples.length * 2, true);
+  str(8, "WAVE");
+  str(12, "fmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); // PCM
+  v.setUint16(22, 1, true); // mono
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  str(36, "data");
+  v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]!));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buf], { type: "audio/wav" });
+}
+
+export async function transcribe(wav: Blob): Promise<string> {
+  const res = await fetch("/api/transcribe", { method: "POST", headers: { "content-type": "audio/wav" }, body: wav });
+  const data = (await res.json()) as { text?: string; error?: string };
+  if (!res.ok || typeof data.text !== "string") throw new Error(data.error ?? "Couldn't hear that.");
+  return data.text;
+}

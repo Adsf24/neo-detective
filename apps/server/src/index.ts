@@ -27,6 +27,26 @@ const rooms = new Rooms(validated.pack, llm);
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
 app.get("/health", async () => ({ ok: true }));
 
+// Voice questions from browsers without built-in speech recognition. WAV in,
+// text out; the text goes back into the question box for the player to check.
+app.addContentTypeParser("audio/wav", { parseAs: "buffer", bodyLimit: 2_000_000 }, (_req, body, done) => done(null, body));
+let transcribing = 0;
+app.post("/api/transcribe", async (req, reply) => {
+  if (!llm.transcribe) return reply.code(501).send({ error: "Voice input needs the Meta Model API key." });
+  if (transcribing >= 6) return reply.code(429).send({ error: "Too many voices at once. Try again." });
+  const wav = req.body as Buffer;
+  if (!Buffer.isBuffer(wav) || wav.length < 1000) return reply.code(400).send({ error: "No audio." });
+  transcribing += 1;
+  try {
+    return { text: await llm.transcribe(wav) };
+  } catch (err) {
+    req.log.error(err);
+    return reply.code(502).send({ error: "Couldn't hear that. Try again or type." });
+  } finally {
+    transcribing -= 1;
+  }
+});
+
 await app.register(fastifyStatic, { root: caseMedia, prefix: "/media/", decorateReply: false });
 if (existsSync(clientDist)) {
   await app.register(fastifyStatic, { root: clientDist });

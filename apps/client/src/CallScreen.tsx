@@ -2,7 +2,7 @@ import type { ContactView, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useRef, useState } from "react";
 import { buzz, flash, play } from "./fx";
 import { Icon } from "./Icons";
-import { canListen, canSpeak, listen, speak, stopSpeaking } from "./voice";
+import { canListen, canRecord, canSpeak, listen, recordWav, speak, stopSpeaking, transcribe } from "./voice";
 import type { AskResult } from "../../server/src/protocol";
 
 interface Props {
@@ -28,6 +28,11 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
   const [listening, setListening] = useState(false);
   const [muted, setMuted] = useState(false);
   const stopListening = useRef<(() => void) | null>(null);
+  const recorder = useRef<Promise<{ stop: () => Promise<Blob> }> | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  // Chrome recognises speech itself, instantly; elsewhere the recording goes
+  // to Muse Voice Transcribe through the server.
+  const voiceMode = canListen() ? "browser" : canRecord() ? "muse" : null;
   const spoken = useRef(lines.length);
 
   // Replies are voiced on the phone of whoever asked — on speakerphone that
@@ -153,6 +158,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
           </ul>
         )}
         {listening && <p className="small notice">Listening… release to stop</p>}
+        {transcribing && <p className="small notice">Transcribing…</p>}
         <form
           className="row"
           onSubmit={(e) => {
@@ -160,20 +166,42 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
             void send();
           }}
         >
-          {contact.channel === "voice" && canListen() && (
+          {contact.channel === "voice" && voiceMode && (
             <button
               type="button"
               aria-label="Hold to talk"
               className={listening ? "mic on" : "mic"}
+              disabled={transcribing}
               onPointerDown={(e) => {
                 e.preventDefault();
                 stopSpeaking();
                 setListening(true);
-                stopListening.current = listen(
-                  (text) => setQuestion(text),
-                  () => setListening(false),
-                  (msg) => setError(msg),
-                );
+                if (voiceMode === "browser") {
+                  stopListening.current = listen(
+                    (text) => setQuestion(text),
+                    () => setListening(false),
+                    (msg) => setError(msg),
+                  );
+                } else {
+                  recorder.current = recordWav();
+                  recorder.current.catch(() => {
+                    setListening(false);
+                    setError("Microphone access was refused. Type instead.");
+                  });
+                  stopListening.current = () => {
+                    const pending = recorder.current;
+                    recorder.current = null;
+                    setListening(false);
+                    if (!pending) return;
+                    setTranscribing(true);
+                    void pending
+                      .then((r) => r.stop())
+                      .then(transcribe)
+                      .then((text) => setQuestion((q) => (q ? `${q} ${text}` : text)))
+                      .catch((err: Error) => setError(err.message))
+                      .finally(() => setTranscribing(false));
+                  };
+                }
               }}
               onPointerUp={() => stopListening.current?.()}
               onPointerLeave={() => listening && stopListening.current?.()}
