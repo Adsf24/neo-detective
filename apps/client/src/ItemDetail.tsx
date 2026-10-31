@@ -24,13 +24,15 @@ export function ItemDetail({ item, view, act, onClose, playerName }: Props) {
         </button>
         <span className="muted small">{item.time}</span>
       </header>
-      <main className="content">
+      <main className="content detail">
         <h1 className="item-title">{item.title}</h1>
         <ItemBody item={item} act={act} />
 
         <section className="actions">
           {onBoard ? (
-            <p className="muted small">On the Board — posted by {playerName(onBoard.postedBy)}</p>
+            <p className="pinned-note">
+              <span className="pin-drop" aria-hidden="true" /> On the Board — posted by {playerName(onBoard.postedBy)}
+            </p>
           ) : (
             <form
               onSubmit={(e) => {
@@ -78,7 +80,7 @@ function ItemBody({ item, act }: { item: ItemView; act: Props["act"] }) {
   switch (item.kind) {
     case "mail":
       return (
-        <article className="mail">
+        <article className="device mail">
           <p className="small">
             <span className="muted">From</span> {item.from}
             <br />
@@ -89,15 +91,20 @@ function ItemBody({ item, act }: { item: ItemView; act: Props["act"] }) {
         </article>
       );
     case "document":
+      return (
+        <article className={item.container === "personal" ? "note-paper" : "device"}>
+          <Paragraphs text={item.body} />
+        </article>
+      );
     case "finding":
       return (
-        <article>
+        <article className="finding-card">
           <Paragraphs text={item.body} />
         </article>
       );
     case "table":
       return (
-        <div className="table-wrap">
+        <div className="device table-wrap">
           <table>
             <thead>
               <tr>

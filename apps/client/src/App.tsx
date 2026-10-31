@@ -25,10 +25,12 @@ function Landing() {
     window.location.search = `?room=${encodeURIComponent(c.trim().toLowerCase())}`;
   };
   return (
-    <main className="screen">
-      <p className="eyebrow">NEO Detective</p>
-      <h1>The Missing Original</h1>
-      <p className="muted">A cooperative case for 3–4 players. Everyone plays on their own phone.</p>
+    <main className="screen landing">
+      <div className="title-card">
+        <p className="eyebrow">NEO Detective · Case No. 1</p>
+        <h1 className="display">The Missing Original</h1>
+        <p className="tagline">A cooperative case for 3–4 detectives. Everyone plays on their own phone.</p>
+      </div>
       <button className="primary wide" onClick={() => go(newRoomCode())}>
         Create a room
       </button>
@@ -78,12 +80,12 @@ function Room({ room }: { room: string }) {
     return (
       <main className="screen">
         <p className="eyebrow">Room {room}</p>
-        <h1>{view.title}</h1>
+        <h1 className="display">{view.title}</h1>
         <p className="muted">Scan to join, or share the link:</p>
         <Qr text={link} />
         <p className="link">{link}</p>
         <h2>Players</h2>
-        <ul aria-label="Players" className="list">
+        <ul aria-label="Players" className="list roster">
           {view.players.map((p) => (
             <li key={p.id}>
               {p.name}
