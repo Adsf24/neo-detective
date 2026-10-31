@@ -48,6 +48,14 @@ export interface ContactView {
   channel: "voice" | "text";
 }
 
+export interface CallLine {
+  asker: string;
+  question: string;
+  reply: string;
+  at: number;
+  shared: boolean;
+}
+
 export interface PlayerView {
   caseId: string;
   title: string;
@@ -65,6 +73,7 @@ export interface PlayerView {
   notes: Note[];
   inbox: InboxMessage[];
   trash: Record<string, string>; // trashed item -> its trash record, for items the player can see
+  calls: Record<string, CallLine[]>; // character -> lines this player heard
 }
 
 export function toItemView(item: Item): ItemView {
@@ -132,5 +141,13 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
     notes: [...state.notes],
     inbox: [...(state.inbox.get(playerId) ?? [])],
     trash: Object.fromEntries([...state.trashed].filter(([, record]) => visible.has(record))),
+    calls: Object.fromEntries(
+      [...state.characters].map(([id, mem]) => [
+        id,
+        mem.history
+          .filter((h) => h.audience === "all" || h.audience.includes(playerId))
+          .map((h) => ({ asker: h.asker, question: h.question, reply: h.reply, at: h.at, shared: h.audience === "all" })),
+      ]),
+    ),
   };
 }

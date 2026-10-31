@@ -1,7 +1,7 @@
 import type { ApplyResult, PlayerView } from "@neo/engine";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import type { ClientAction, ClientToServer, JoinResult, ServerToClient } from "../../server/src/protocol";
+import type { AskResult, ClientAction, ClientToServer, JoinResult, ServerToClient } from "../../server/src/protocol";
 
 type GameSocket = Socket<ServerToClient, ClientToServer>;
 
@@ -81,5 +81,17 @@ export function useGame(room: string) {
     [],
   );
 
-  return { view, name, joined, error, join, act, clearError: () => setError(null) };
+  const ask = useCallback(
+    (payload: { character: string; question: string; presented: string[]; shared: boolean }) =>
+      new Promise<AskResult>((resolve) => {
+        const socket = socketRef.current;
+        if (!socket) return resolve({ ok: false, error: "Not connected." });
+        socket.timeout(30_000).emit("ask", payload, (err: Error | null, res: AskResult) =>
+          resolve(err ? { ok: false, error: "No answer. Try again." } : res),
+        );
+      }),
+    [],
+  );
+
+  return { view, name, joined, error, join, act, ask, clearError: () => setError(null) };
 }

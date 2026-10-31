@@ -97,5 +97,5 @@ function Room({ room }: { room: string }) {
     );
   }
 
-  return <Game view={view} act={game.act} error={game.error} clearError={game.clearError} />;
+  return <Game view={view} act={game.act} ask={game.ask} error={game.error} clearError={game.clearError} />;
 }

@@ -544,14 +544,19 @@ export const missingOriginal: CasePackInput = {
         {
           id: "marina_registry_lie",
           says: "Yes, I changed the card. Paul asked me to mark No.14 as in restoration — he said the frame had cracked. I assumed he'd told you.",
-          unlock: { presented: "c02" },
+          unlock: { all: [{ presented: "c02" }, { not: { admitted: "marina_took" } }] },
           truthful: false,
           setsFlags: ["marina_alerted"],
         },
         {
           id: "marina_stern_lie",
           says: "Mr Stern asked about the print. I told him it isn't for sale. “Done” was about the appraisal letter he wanted. Nothing more.",
-          unlock: { any: [{ presented: "m10" }, { presented: "m12" }, KEY_MAIL, { presented: "m14" }] },
+          unlock: {
+            all: [
+              { any: [{ presented: "m10" }, { presented: "m12" }, KEY_MAIL, { presented: "m14" }] },
+              { not: { admitted: "marina_took" } },
+            ],
+          },
           truthful: false,
           setsFlags: ["marina_alerted"],
         },
