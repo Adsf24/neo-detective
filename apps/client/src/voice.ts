@@ -55,14 +55,17 @@ export function listen(onText: (text: string, final: boolean) => void, onEnd: ()
   return () => rec.stop();
 }
 
-const FEMALE = /(female|samantha|victoria|karen|moira|tessa|fiona|serena|zira|susan|google uk english female|google us english)/i;
-const MALE = /(male|daniel|alex|fred|oliver|arthur|rishi|george|david|google uk english male)/i;
+// System voice names differ per OS and browser; match the common ones.
+const FEMALE = /\b(female|samantha|victoria|karen|moira|tessa|fiona|serena|zira|susan|allison|ava|kathy|nicky|martha|catherine|flo|sandy|shelley|grandma|joelle|zoe|libby|sonia|emma|jenny|aria|google us english)\b/i;
+const MALE = /\b(male|daniel|alex|fred|oliver|arthur|rishi|george|david|reed|rocko|eddy|grandpa|ralph|aaron|gordon|lee|tom|junior|guy|ryan|thomas|mark|james)\b/i;
 
 function pickVoice(gender: "female" | "male", seed: string): SpeechSynthesisVoice | undefined {
   const voices = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
-  const pattern = gender === "female" ? FEMALE : MALE;
-  const matching = voices.filter((v) => pattern.test(v.name) && !(gender === "female" ? MALE : FEMALE).test(v.name.replace(/female/i, "")));
-  const pool = matching.length ? matching : voices;
+  const own = gender === "female" ? FEMALE : MALE;
+  const other = gender === "female" ? MALE : FEMALE;
+  // "Female" contains "male": strip it before testing the other gender.
+  const matching = voices.filter((v) => own.test(v.name) && !other.test(gender === "male" ? v.name : v.name.replace(/female/i, "")));
+  const pool = matching.length ? matching : [];
   if (!pool.length) return undefined;
   const hash = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   return pool[hash % pool.length];
@@ -76,7 +79,9 @@ export function speak(text: string, voice: { gender: "female" | "male" }, seed: 
   u.lang = v?.lang ?? "en-US";
   // Small per-character variation so two voices from the same pool still differ.
   const hash = [...seed].reduce((h, c) => (h * 17 + c.charCodeAt(0)) >>> 0, 3);
-  u.pitch = 0.9 + (hash % 20) / 100;
+  // No gendered voice found: shift the default voice instead of guessing wrong.
+  const base = v ? 0.9 : voice.gender === "male" ? 0.62 : 1.15;
+  u.pitch = base + (hash % 20) / 100;
   u.rate = 0.95 + (hash % 10) / 100;
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
