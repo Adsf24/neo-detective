@@ -29,13 +29,16 @@ question ──► fast Muse model: which topics, is it an accusation?
          ──► check: the reply may rely only on unlocked knowledge ──► retry / safe line
 ```
 
-So a suspect can't be talked into confessing by pressure alone — only by the right evidence and the right question. Every row of the suspect's confession table is a unit test.
+So a suspect can't be talked into confessing by pressure alone — only by the right evidence and the right question. Every row of the suspect's confession table is a unit test, and plot-moving knowledge is committed only together with the line that says it.
+
+Measured live against the Meta Model API — 72 scripted turns including six prompt-injection attempts: zero leaks, median reply ~1.4 s, confession landed in 3/3 runs. See `docs/live-results.md`; reproduce with `RUNS=3 npx tsx scripts/live-dialogue.ts --write`.
 
 ## Built with
 
 - **Meta Muse models** (`muse-spark` via the Meta Model API) for question classification and character role-play.
 - TypeScript throughout: React + Vite client, Fastify + Socket.IO server, a pure game engine, and a Zod schema for case packs.
-- Browser speech recognition and synthesis for voice calls (Chrome).
+- **Muse Image** (`muse-image-1.0`) for every scene, portrait and evidence photo; evidence details are drawn over the photos by the client, never by the image model.
+- **Muse Voice Transcribe** for spoken questions on browsers without built-in recognition (iPhone Safari, Firefox); Chrome uses its own instant recognition. Replies are voiced with the browser's speech synthesis.
 
 A case is data, not code: `cases/missing-original` holds the truth, timeline, characters and their contracts, items, director events, the evidence graph and the reconstruction. A validator checks every reference and every flag before a case can load.
 

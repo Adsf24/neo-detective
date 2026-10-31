@@ -29,6 +29,7 @@ describe("reply check", () => {
     expect(checkReply('```json\n{"reply":"Paul asked me.","used":["marina_registry_lie"]}\n```', allowed)).toEqual({
       ok: true,
       reply: "Paul asked me.",
+      used: ["marina_registry_lie"],
     });
   });
 

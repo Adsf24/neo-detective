@@ -16,7 +16,7 @@ Three or four friends open a link on their phones. One holds the gallery compute
 
 They dig through mailboxes, a registry change log, a door access log. They zoom into a photo and find an envelope that shouldn't be there. Then they call the gallery administrator — by voice — and she lies to them. Show her the change log and she blames the owner. Show her the email *and* ask her straight, and she breaks.
 
-What makes it work: **the truth lives in the engine, not in the prompt.** Before every reply our engine decides what the character is allowed to say right now, based on the evidence on the table and the question asked. The model only ever sees the cover story and the unlocked facts — it cannot leak what it never sees. In live tests: zero leaks, including jailbreak attempts, with a median answer in 1.5 seconds.
+What makes it work: **the truth lives in the engine, not in the prompt.** Before every reply our engine decides what the character is allowed to say right now, based on the evidence on the table and the question asked. The model only ever sees the cover story and the unlocked facts — it cannot leak what it never sees. In 72 scripted live turns against the real model, including six prompt-injection attempts: zero leaks, a median answer in about 1.4 seconds, and the confession landing every time the right evidence and question were used (`docs/live-results.md`, reproducible with one command).
 
 And it is built end to end on Meta's models: **Muse Spark** plays the witnesses, **Muse Image** shot every scene, portrait and piece of photographic evidence, and **Muse Voice Transcribe** hears players on phones that can't recognise speech themselves.
 
@@ -41,7 +41,8 @@ Setup before going on stage: laptop on a projector with the desktop room; two ph
 
 ## What judges might ask
 
-- **Can players jailbreak the witness?** The model never receives locked facts. A checker rejects any reply that relies on knowledge outside the unlocked set; one retry, then a safe line. `scripts/live-dialogue.ts` runs jailbreak scripts against the real model.
+- **Can players jailbreak the witness?** The model never receives locked facts. A checker rejects any reply that relies on knowledge outside the unlocked set; one retry, then a safe line. Plot-moving knowledge (a confession) is recorded only together with the line that says it: if the model dodges, the line is spoken verbatim. `RUNS=3 npx tsx scripts/live-dialogue.ts --write` replays the attacks against the real model and writes `docs/live-results.md`.
+- **Can you solve it without a confession?** Yes. The accusation is scored only against the evidence graph; a confession is a shortcut to evidence, not a requirement. A unit test accuses with the door log, the change log and the collector's terms, with no call at all, and scores "solved".
 - **Why not let the model write the mystery?** Generated mysteries don't hold together under interrogation. A case is authored: the truth, the timeline, who knows what, and what makes each person talk. The model brings people to life; it doesn't decide what happened.
 - **Is it fair?** Every required claim has at least two independent sources; a validator checks every reference in a case before it loads; scoring follows the case's evidence graph.
 - **What does it cost to run?** Two short model calls per question (classification, role-play); per-room and global limits guard the credits.
