@@ -119,3 +119,48 @@ test("a speakerphone call: showing evidence makes the witness change her story f
 
   await Promise.all(contexts.map((c) => c.close()));
 });
+
+test("the team votes in secret, accuses with evidence and reads its debrief", async ({ browser }) => {
+  const room = `e2e-final-${Date.now()}`;
+  const contexts = await Promise.all([0, 1, 2].map(() => browser.newContext()));
+  const [ann, bob, cy] = await Promise.all(contexts.map((c) => c.newPage()));
+  await joinAs(ann!, room, "Ann");
+  await joinAs(bob!, room, "Bob");
+  await joinAs(cy!, room, "Cy");
+  await ann!.getByRole("button", { name: "Start the investigation" }).click();
+  for (const page of [ann!, bob!, cy!]) await page.getByRole("button", { name: "Start investigating" }).click();
+
+  await bob!.getByLabel("Password").fill("PG-1962");
+  await bob!.getByRole("button", { name: "Unlock" }).click();
+  for (const title of ["Door access log — Wednesday", "Registry — change log"]) {
+    await bob!.getByRole("button", { name: new RegExp(title) }).click();
+    await bob!.getByRole("button", { name: "Post to Board" }).click();
+    await bob!.getByRole("button", { name: "← Back" }).click();
+  }
+  await bob!.getByText("m.cole@lumengallery.example").click();
+  await bob!.getByRole("button", { name: /Re: The Embankment.*Mon, Oct 26/ }).click(); // Stern's terms: the motive
+  await bob!.getByRole("button", { name: "Post to Board" }).click();
+  await bob!.getByRole("button", { name: "← Back" }).click();
+
+  await ann!.getByRole("button", { name: /^Board/ }).click();
+  await ann!.getByRole("button", { name: "We're ready — call the verdict" }).click();
+
+  for (const page of [ann!, bob!, cy!]) {
+    await page.getByRole("dialog", { name: "Verdict" }).getByRole("button", { name: /Marina Cole/ }).click();
+  }
+  const verdict = ann!.getByRole("dialog", { name: "Verdict" });
+  await expect(verdict.getByRole("heading", { name: "The votes" })).toBeVisible();
+
+  await verdict.getByLabel("Accused").selectOption({ label: "Marina Cole" });
+  await verdict.getByLabel("What happened, in order").fill("She swapped the print while alone and changed the registry.");
+  await verdict.getByLabel("Motive").fill("Stern's money.");
+  for (const box of await verdict.getByRole("checkbox").all()) await box.check();
+  await verdict.getByRole("button", { name: "Accuse" }).click();
+
+  for (const page of [ann!, bob!, cy!]) {
+    await expect(page.getByRole("heading", { name: "Case closed." })).toBeVisible();
+    await expect(page.getByText("What really happened — Marina Cole")).toBeVisible();
+  }
+
+  await Promise.all(contexts.map((c) => c.close()));
+});

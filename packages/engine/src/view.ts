@@ -1,4 +1,6 @@
 import type { CasePack, Item } from "@neo/case-schema";
+import { teamHistory, type TeamHistory } from "./history";
+import { scoreGame, type Score } from "./scoring";
 import {
   type BoardCard,
   type Council,
@@ -68,6 +70,14 @@ export interface CouncilView {
   status: "open" | "approved" | "declined" | "cancelled";
 }
 
+export interface DebriefView {
+  accusation: { by: string; who: string; what: string; why: string; items: string[] };
+  score: Score;
+  culpritName: string;
+  reconstruction: { narrator: string; text: string; reveals: string[] };
+  history: TeamHistory;
+}
+
 export interface PlayerView {
   caseId: string;
   title: string;
@@ -91,6 +101,8 @@ export interface PlayerView {
   versions: Version[];
   verdictRequested: boolean;
   councils: CouncilView[]; // open requests plus the last few decisions
+  verdict: { open: boolean; voted: string[]; mine?: string; revealed: Record<string, string> | null };
+  debrief: DebriefView | null; // the truth, only once the game is over
 }
 
 export function toItemView(item: Item): ItemView {
@@ -133,7 +145,7 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
   const mySlots = slotsOf(pack, state, playerId);
   const slot = pack.slots.find((s) => s.id === me.slot)!;
   const act = pack.acts.find((a) => a.id === state.act)!;
-  const playing = state.phase === "playing";
+  const playing = state.phase !== "lobby";
 
   const containers: ContainerView[] = playing
     ? pack.containers
@@ -188,6 +200,26 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
       risk: pack.irreversible.find((r) => r.id === c.irreversible)?.risk ?? "",
       status: c.status,
     })),
+    verdict: {
+      open: state.verdict.open,
+      voted: [...state.verdict.votes.keys()],
+      mine: state.verdict.votes.get(playerId),
+      revealed: state.verdict.revealed ? Object.fromEntries(state.verdict.votes) : null,
+    },
+    debrief:
+      state.phase === "finished" && state.accusation
+        ? {
+            accusation: state.accusation,
+            score: scoreGame(pack, state)!,
+            culpritName: pack.characters.find((c) => c.id === pack.accusation.culprit)!.name,
+            reconstruction: {
+              narrator: pack.characters.find((c) => c.id === pack.reconstruction.narrator)!.name,
+              text: pack.reconstruction.text,
+              reveals: pack.reconstruction.reveals,
+            },
+            history: teamHistory(pack, state),
+          }
+        : null,
     calls: Object.fromEntries(
       [...state.characters].map(([id, mem]) => [
         id,

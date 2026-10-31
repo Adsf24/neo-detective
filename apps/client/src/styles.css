@@ -209,3 +209,7 @@ textarea {
 .check input { width: auto; }
 .notice { color: var(--accent); }
 .wide-bar { display: block; width: 100%; text-align: left; color: var(--fg); border: none; border-radius: 0; font-weight: 600; }
+.chosen { border-color: var(--accent); }
+.quote { font-style: italic; border-left: 2px solid var(--line); padding-left: 12px; }
+.scores li { font-size: 1.05rem; }
+.button-link { display: block; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; margin-top: 24px; }
