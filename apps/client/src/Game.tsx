@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { AskResult, ClientAction } from "../../server/src/protocol";
 import { CallScreen } from "./CallScreen";
 import { ActTransition, CouncilBanner } from "./Collective";
+import { Debrief, Verdict } from "./Finale";
 import { ItemDetail } from "./ItemDetail";
 
 type Act = (action: ClientAction) => Promise<ApplyResult>;
@@ -43,10 +44,18 @@ export function Game({ view, act, ask, error, clearError }: GameProps) {
     );
   }
 
+  if (view.debrief) return <Debrief view={view} items={items} playerName={playerName} />;
+
   const shared = (
     <>
       <CouncilBanner view={view} act={act} playerName={playerName} />
       <ActTransition view={view} items={items} act={act} />
+      <Verdict view={view} items={items} act={act} playerName={playerName} />
+      {view.verdictRequested && !view.verdict.open && (
+        <button className="council wide-bar" onClick={() => void act({ type: "callVerdict" })}>
+          Paul: “I need an answer.” — Call the verdict →
+        </button>
+      )}
     </>
   );
 
@@ -263,6 +272,12 @@ function Board({
             ))}
           </ol>
         </section>
+      )}
+
+      {!view.verdict.open && view.board.length >= 3 && (
+        <button className="wide" onClick={() => void act({ type: "callVerdict" })}>
+          We're ready — call the verdict
+        </button>
       )}
 
       <section>

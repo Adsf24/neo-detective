@@ -64,8 +64,17 @@ export interface Council {
   at: number;
 }
 
+export interface Accusation {
+  by: string;
+  who: string;
+  what: string;
+  why: string;
+  items: string[];
+  at: number;
+}
+
 export interface GameState {
-  phase: "lobby" | "playing";
+  phase: "lobby" | "playing" | "finished";
   startedAt: number | null;
   act: string;
   players: Player[];
@@ -84,6 +93,9 @@ export interface GameState {
   transition: { toAct: string; since: number } | null;
   versions: Version[];
   verdictRequested: boolean;
+  // Finale
+  verdict: { open: boolean; votes: Map<string, string>; revealed: boolean };
+  accusation: Accusation | null;
   // Council
   councils: Council[];
   approved: Set<string>; // irreversible ids approved for the rest of the game (searches)
@@ -103,7 +115,10 @@ export type Action =
   | { type: "version"; player: string; who: string; what: string; why: string; items: string[] }
   | { type: "councilRequest"; player: string; payload: CouncilPayload }
   | { type: "councilDecide"; player: string; council: string; approve: boolean }
-  | { type: "councilCancel"; player: string; council: string };
+  | { type: "councilCancel"; player: string; council: string }
+  | { type: "callVerdict"; player: string }
+  | { type: "vote"; player: string; who: string }
+  | { type: "accuse"; player: string; who: string; what: string; why: string; items: string[] };
 
 export type ApplyResult = { ok: true } | { ok: false; error: string };
 
@@ -127,6 +142,8 @@ export function createGame(pack: CasePack): GameState {
     transition: null,
     versions: [],
     verdictRequested: false,
+    verdict: { open: false, votes: new Map(), revealed: false },
+    accusation: null,
     councils: [],
     approved: new Set(),
     log: [],
@@ -313,6 +330,37 @@ export function apply(pack: CasePack, state: GameState, action: Action, now: num
       const c = state.councils.find((x) => x.id === action.council && x.status === "open");
       if (!c || c.requestedBy !== action.player) return fail("Nothing to cancel.");
       c.status = "cancelled";
+      return { ok: true };
+    }
+    case "callVerdict": {
+      if (state.transition) return fail("Record the team's version first.");
+      state.verdict.open = true;
+      log(state, now, "verdict_called", action.player, {});
+      return { ok: true };
+    }
+    case "vote": {
+      if (!state.verdict.open) return fail("The verdict hasn't been called.");
+      if (state.verdict.revealed) return fail("Votes are already revealed.");
+      if (!pack.characters.some((c) => c.id === action.who)) return fail("Pick a person.");
+      state.verdict.votes.set(action.player, action.who);
+      if (state.verdict.votes.size === state.players.length) {
+        state.verdict.revealed = true;
+        log(state, now, "verdict_revealed", undefined, Object.fromEntries(state.verdict.votes));
+      }
+      return { ok: true };
+    }
+    case "accuse": {
+      if (!state.verdict.revealed) return fail("Everyone votes first.");
+      if (!pack.characters.some((c) => c.id === action.who)) return fail("Pick who did it.");
+      const what = action.what.trim();
+      const why = action.why.trim();
+      if (!what || !why) return fail("Say what happened and why.");
+      const onBoard = new Set(state.board.map((b) => b.item));
+      const items = [...new Set(action.items)].filter((i) => onBoard.has(i));
+      if (items.length < pack.accusation.minItems) return fail(`Back the accusation with at least ${pack.accusation.minItems} items from the Board.`);
+      state.accusation = { by: action.player, who: action.who, what: what.slice(0, 800), why: why.slice(0, 500), items, at: now };
+      state.phase = "finished";
+      log(state, now, "accuse", action.player, { who: action.who });
       return { ok: true };
     }
     case "hotspot": {

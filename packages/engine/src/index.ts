@@ -16,6 +16,7 @@ export {
   type Action,
   type ApplyResult,
   type BoardCard,
+  type Accusation,
   type Council,
   type CouncilPayload,
   type Version,
@@ -25,7 +26,7 @@ export {
   type Note,
   type Player,
 } from "./game";
-export { toItemView, viewFor, type CallLine, type ContactView, type CouncilView, type ContainerView, type ItemView, type PlayerView } from "./view";
+export { toItemView, viewFor, type CallLine, type ContactView, type CouncilView, type DebriefView, type ContainerView, type ItemView, type PlayerView } from "./view";
 export { memoryOf, planTurn, recordReply, type CharacterMemory, type TurnInput, type TurnPlan } from "./contract";
 export {
   characterMessages,
@@ -38,3 +39,5 @@ export {
   type ReplyContext,
 } from "./prompt";
 export { recipients, tick } from "./director";
+export { scoreAccusation, scoreGame, type ClaimResult, type Score } from "./scoring";
+export { teamHistory, type TeamHistory } from "./history";
