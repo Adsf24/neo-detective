@@ -1,0 +1,30 @@
+{
+  "name": "neo-detective",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @neo/server & npm run dev -w @neo/client",
+    "build": "npm run build -w @neo/client",
+    "start": "npm run start -w @neo/server",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.9.0",
+    "eslint": "^9.14.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.13.0",
+    "vitest": "^2.1.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -4,6 +4,17 @@ Cooperative digital detective board game. 3–5 players on their phones investig
 
 The truth lives in the engine, not in the prompt.
 
+## Develop
+
+```bash
+npm install
+npm run dev     # server :3000 + client :5173
+npm test        # unit tests
+npm run e2e     # end-to-end with several browser clients
+```
+
+Working rules for contributors and coding agents: `CLAUDE.md`.
+
 ## Docs
 
 - `docs/gdd.md` — game design document (RU)
