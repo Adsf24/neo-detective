@@ -1,5 +1,6 @@
 import type { ApplyResult, ItemView, PlayerView } from "@neo/engine";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { burst, play } from "./fx";
 import type { ClientAction } from "../../server/src/protocol";
 
 type Act = (action: ClientAction) => Promise<ApplyResult>;
@@ -122,6 +123,17 @@ function AccusationForm({ view, items, act, onError }: { view: PlayerView; items
 
 export function Debrief({ view, items, playerName }: { view: PlayerView; items: Map<string, ItemView>; playerName: (id: string) => string }) {
   const d = view.debrief!;
+  useEffect(() => {
+    const t1 = setTimeout(() => play("stamp"), 380);
+    if (d.score.outcome !== "solved") return () => clearTimeout(t1);
+    const timers = [0, 450, 900].map((ms, i) =>
+      setTimeout(() => {
+        burst(window.innerWidth * (0.25 + i * 0.25), window.innerHeight * 0.22, "gold", 26);
+        if (i === 0) play("reveal");
+      }, 500 + ms),
+    );
+    return () => [t1, ...timers].forEach(clearTimeout);
+  }, [d.score.outcome]);
   const headline =
     d.score.outcome === "solved" ? "Case closed." : d.score.outcome === "right_unproven" ? "Right name. Thin case." : "Wrong person.";
   const accused = view.suspects.find((s) => s.id === d.accusation.who)?.name ?? d.accusation.who;

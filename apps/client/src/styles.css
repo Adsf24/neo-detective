@@ -38,7 +38,7 @@
 
 * { box-sizing: border-box; }
 
-html, body { overflow-x: hidden; }
+html, body { overflow-x: hidden; overflow-x: clip; }
 
 body {
   margin: 0;
@@ -804,4 +804,170 @@ tbody tr:nth-child(even) td { background: #fafbfc; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition: none !important; }
   body::before { animation: none; }
+}
+
+/* ===================== Tactile layer ===================== */
+
+button, .button-link { position: relative; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+button:active { transform: translateY(2px) scale(0.97); filter: brightness(1.08); }
+.primary:active, .brass:active { box-shadow: inset 0 2px 6px rgba(60, 40, 5, 0.6), 0 1px 0 #4a3510; }
+.fx-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 236, 180, 0.55), rgba(255, 210, 120, 0.15) 45%, transparent 70%);
+  transform: scale(0);
+  animation: ripple 0.55s ease-out forwards;
+}
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.sound-toggle { padding: 4px 8px; font-size: 0.85rem; background: none; border: 1px solid var(--brass-lo); box-shadow: none; color: var(--brass-hi); }
+.act-ribbon { animation: ribbon 0.7s var(--ease-snap) both; }
+@keyframes ribbon { from { transform: translateX(120%); } }
+.bump { display: inline-block; animation: bump 0.45s var(--ease-snap); }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.6) rotate(-8deg); } 100% { transform: scale(1); } }
+
+/* Padlock */
+.lockbox { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: rgba(15, 9, 6, 0.55); border: 1px dashed var(--brass-lo); }
+.lockbox .row { flex: 1; min-width: 0; margin: 0; }
+.lockbox .brass { flex: none; padding: 10px 12px; }
+.lockbox input { font-family: var(--mono); letter-spacing: 0.12em; }
+.padlock { flex: none; width: 44px; height: 55px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); overflow: visible; }
+.padlock .shackle { transition: transform 0.3s; }
+.padlock-rattle { animation: rattle 0.5s ease-in-out; }
+@keyframes rattle {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(-14deg); }
+  30% { transform: rotate(12deg); }
+  45% { transform: rotate(-9deg); }
+  60% { transform: rotate(6deg); }
+  75% { transform: rotate(-3deg); }
+}
+.lockbox.opening { justify-content: center; border-style: solid; animation: lock-fade 1.1s ease-in forwards; pointer-events: none; }
+.padlock-opening { width: 64px; height: 80px; animation: lock-drop 1s var(--ease-out) forwards; }
+.padlock-opening .shackle { animation: shackle-pop 0.35s var(--ease-snap) forwards; transform-origin: 46px 36px; }
+@keyframes shackle-pop { to { transform: translateY(-9px) rotate(28deg); } }
+@keyframes lock-drop {
+  0%, 35% { transform: none; }
+  55% { transform: rotate(-12deg); }
+  100% { transform: translateY(60px) rotate(25deg); opacity: 0; }
+}
+@keyframes lock-fade { 0%, 70% { opacity: 1; max-height: 120px; } 100% { opacity: 0; max-height: 0; padding: 0; margin: 0; border-width: 0; } }
+
+/* Cabinet doors swing open over a newly revealed location */
+.doors-open { position: relative; }
+.doors-open::before, .doors-open::after {
+  content: "";
+  position: absolute;
+  top: 2.6em;
+  bottom: -6px;
+  width: 50%;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0 2px, transparent 2px 9px), linear-gradient(180deg, #4b301a, #2a1b11);
+  border: 2px solid var(--brass-lo);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
+}
+.doors-open::before { left: 0; transform-origin: left center; animation: door-left 1.3s var(--ease-out) 0.15s forwards; }
+.doors-open::after { right: 0; transform-origin: right center; animation: door-right 1.3s var(--ease-out) 0.15s forwards; }
+@keyframes door-left { to { transform: perspective(600px) rotateY(-100deg); opacity: 0; } }
+@keyframes door-right { to { transform: perspective(600px) rotateY(100deg); opacity: 0; } }
+
+/* Board chip in the item header: where posted cards fly to */
+.board-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: var(--serif);
+  color: var(--ink);
+  background: linear-gradient(180deg, #b78553, var(--cork));
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.35);
+}
+.pin-mini { width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff8a7a, #b3241e 55%, #5c0f0b); }
+.fx-ghost {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 220px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-family: var(--script);
+  background: linear-gradient(180deg, var(--parchment), var(--parchment-2));
+  box-shadow: 0 0 0 2px var(--brass), 0 12px 24px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+  animation: fly 0.65s cubic-bezier(0.55, 0, 0.3, 1) forwards;
+}
+@keyframes fly {
+  0% { transform: translate(-50%, -50%) scale(1) rotate(0); }
+  30% { transform: translate(calc(-50% + var(--tx) * 0.15), calc(-50% + var(--ty) * 0.15 - 40px)) scale(1.05) rotate(-6deg); }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.15) rotate(14deg); opacity: 0.4; }
+}
+
+/* Particles */
+.fx-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.fx-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  animation: particle 0.9s ease-out forwards;
+}
+.fx-spark { background: #fff2c4; box-shadow: 0 0 8px 2px rgba(var(--candle), 0.9); }
+.fx-ember { background: #ff9a5a; box-shadow: 0 0 8px 2px rgba(255, 120, 60, 0.8); }
+.fx-gold { width: 7px; height: 4px; border-radius: 1px; background: linear-gradient(90deg, #fff3c0, #d4a640); box-shadow: 0 0 6px rgba(var(--candle), 0.8); animation-duration: 1.5s; }
+@keyframes particle {
+  0% { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.3) rotate(260deg); opacity: 0; }
+}
+
+/* Full-screen flashes for big moments */
+.fx-flash { position: fixed; inset: 0; z-index: 55; pointer-events: none; animation: flash 0.9s ease-out forwards; }
+.fx-flash-gold { background: radial-gradient(60% 50% at 50% 55%, rgba(255, 214, 130, 0.55), transparent 70%); }
+.fx-flash-wax { background: radial-gradient(60% 50% at 50% 30%, rgba(194, 58, 46, 0.45), transparent 70%); }
+@keyframes flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Telegram toasts */
+.toasts { position: fixed; top: 64px; left: 12px; right: 12px; z-index: 40; display: grid; gap: 8px; pointer-events: none; max-width: 520px; margin: 0 auto; }
+.toast {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  color: var(--ink);
+  font-family: var(--script);
+  background: linear-gradient(180deg, #f6eacd, #e6d3a8);
+  border-left: 5px solid var(--wax);
+  border-radius: 4px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.55);
+  animation: toast-in 0.55s var(--ease-snap) both, toast-out 0.5s ease-in 4.6s forwards;
+}
+.toast .eyebrow { color: var(--wax); }
+.toast-seal { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; color: #fbe9d0; background: radial-gradient(circle, var(--wax-hi), var(--wax)); animation: wiggle 0.6s ease-in-out 0.4s 2; }
+@keyframes toast-in { from { transform: translateY(-120%) rotate(-3deg); opacity: 0; } }
+@keyframes toast-out { to { transform: translateY(-40px); opacity: 0; } }
+@keyframes wiggle { 25% { transform: rotate(-16deg); } 75% { transform: rotate(16deg); } }
+
+/* Item detail opens like a card being turned over */
+.content.detail { animation: card-turn 0.5s var(--ease-out) both; transform-origin: center top; }
+@keyframes card-turn { from { opacity: 0; transform: perspective(1000px) rotateY(-28deg) translateX(30px); } }
+
+/* Evidence cards: a glint passes over them when pressed */
+.evidence::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.evidence:active::after { animation: card-glint 0.5s ease-out; }
+@keyframes card-glint { to { transform: translateX(120%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer, .fx-ghost, .fx-flash, .doors-open::before, .doors-open::after { display: none; }
 }
