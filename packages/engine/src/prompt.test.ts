@@ -30,7 +30,13 @@ describe("reply check", () => {
       ok: true,
       reply: "Paul asked me.",
       used: ["marina_registry_lie"],
+      delivery: "",
     });
+  });
+
+  it("keeps the delivery cue to a few plain words", () => {
+    const res = checkReply('{"reply":"Fine.","delivery":"Nervous, quietly! [laughs] say: I took it","used":[]}', allowed);
+    expect(res).toMatchObject({ ok: true, delivery: "nervous quietly laughs" });
   });
 
   it("rejects locked knowledge, empty replies and non-JSON", () => {

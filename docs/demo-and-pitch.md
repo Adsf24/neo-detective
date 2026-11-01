@@ -18,7 +18,7 @@ They dig through mailboxes, a registry change log, a door access log. They zoom 
 
 What makes it work: **the truth lives in the engine, not in the prompt.** Before every reply our engine decides what the character is allowed to say right now, based on the evidence on the table and the question asked. The model only ever sees the cover story and the unlocked facts — it cannot leak what it never sees. In 72 scripted live turns against the real model, including six prompt-injection attempts: zero leaks, a median answer in about 1.4 seconds, and the confession landing every time the right evidence and question were used (`docs/live-results.md`, reproducible with one command).
 
-And it is built end to end on Meta's models: **Muse Spark** plays the witnesses, **Muse Image** shot every scene, portrait and piece of photographic evidence, and **Muse Voice Transcribe** hears players on phones that can't recognise speech themselves.
+And it is built end to end on Meta's models: **Muse Spark** plays the witnesses, **Muse Image** shot every scene, portrait and piece of photographic evidence, and **Muse Voice Transcribe** hears players on phones that can't recognise speech themselves. Muse Spark also directs every line — "nervous", "offended", "quietly, hurt" — and ElevenLabs performs it in the witness's own voice.
 
 A case is data, not code. The next case is a writer's job, not an engineer's.
 

@@ -54,11 +54,12 @@ export interface ContactView {
   name: string;
   role: string;
   channel: "voice" | "text";
-  voice: { gender: "female" | "male"; style: string };
+  voice: { gender: "female" | "male"; style: string; elevenlabs?: string };
   portrait?: string;
 }
 
 export interface CallLine {
+  n: number; // position in the character's full transcript, stable across viewers
   asker: string;
   question: string;
   reply: string;
@@ -238,8 +239,9 @@ export function viewFor(pack: CasePack, state: GameState, playerId: string, now:
       [...state.characters].map(([id, mem]) => [
         id,
         mem.history
-          .filter((h) => h.audience === "all" || h.audience.includes(playerId))
-          .map((h) => ({ asker: h.asker, question: h.question, reply: h.reply, at: h.at, shared: h.audience === "all" })),
+          .map((h, n) => ({ h, n }))
+          .filter(({ h }) => h.audience === "all" || h.audience.includes(playerId))
+          .map(({ h, n }) => ({ n, asker: h.asker, question: h.question, reply: h.reply, at: h.at, shared: h.audience === "all" })),
       ]),
     ),
   };

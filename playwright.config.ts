@@ -9,7 +9,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Pixel 7"] } }],
   webServer: {
     // e2e never calls a real model: the scripted provider keeps runs deterministic and free.
-    command: `npm run build && LLM_PROVIDER=scripted PORT=${PORT} npm start`,
+    command: `npm run build && LLM_PROVIDER=scripted TTS_PROVIDER=off PORT=${PORT} npm start`,
     url: `http://localhost:${PORT}/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

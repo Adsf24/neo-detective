@@ -34,6 +34,7 @@ Boundaries:
 - The socket contract lives in `apps/server/src/protocol.ts` and is imported by the client.
 - The LLM sits behind `LlmProvider` in `apps/server/src/llm`. `LlamaProvider` talks to the Meta Model API (`https://api.meta.ai/v1`, Muse models, minimal reasoning effort) when `LLAMA_API_KEY` is set; otherwise `ScriptedProvider`, a deterministic offline stand-in. e2e always runs scripted. Do not call a model from anywhere else.
 - The reply loop lives in `apps/server/src/dialogue.ts`: classify → `planTurn` (contract engine) → role-play prompt with unlocked knowledge only → `checkReply` → one retry → safe line. To save latency the reply is drafted in parallel from a keyword classification on a cloned state and reused when the model's classification unlocks the same knowledge.
+- Character voices: the role-play model returns a short `delivery` cue with each reply; `apps/server/src/tts.ts` sends `[delivery] reply` to ElevenLabs when `ELEVENLABS_API_KEY` is set (`.env` or `.env.local`). `GET /api/voice` voices only a line already in a character's history, only for a player in its audience, within a per-room character budget (`Rooms.voiceLine`). Without a key the client falls back to browser speech. e2e runs with `TTS_PROVIDER=off`.
 - `npx tsx scripts/live-dialogue.ts` plays scripted interrogations (incl. jailbreaks) against the real model and reports latency and leaks. Run it after any change to prompts, contracts or the reply loop.
 
 ## Commands

@@ -6,12 +6,17 @@ import { missingOriginal } from "@neo/case-missing-original";
 import { validateCasePack } from "@neo/case-schema";
 import Fastify from "fastify";
 import { Server } from "socket.io";
+import { Readable } from "node:stream";
 import { createProvider } from "./llm";
+import { createTts, performance } from "./tts";
 import type { ClientToServer, ServerToClient } from "./protocol";
 import { Rooms } from "./rooms";
 
-const envFile = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../.env");
-if (existsSync(envFile)) process.loadEnvFile(envFile);
+// .env holds the Meta key; .env.local is where the ElevenLabs CLI wrote its key.
+for (const name of [".env", ".env.local"]) {
+  const file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..", name);
+  if (existsSync(file)) process.loadEnvFile(file);
+}
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -22,10 +27,47 @@ const caseMedia = path.resolve(here, "../../../cases/missing-original/media");
 const validated = validateCasePack(missingOriginal);
 if (!validated.ok) throw new Error(`Invalid case pack:\n${validated.errors.join("\n")}`);
 const llm = createProvider();
+const tts = createTts();
 const rooms = new Rooms(validated.pack, llm);
 
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
 app.get("/health", async () => ({ ok: true }));
+
+// A witness line, voiced. Only lines that were said in this room, only to a
+// player who heard them; cached so a refresh doesn't pay twice.
+const voiceCache = new Map<string, Buffer>();
+let synthesizing = 0;
+app.get("/api/voice", async (req, reply) => {
+  const q = req.query as Record<string, string | undefined>;
+  if (!tts) return reply.code(501).send({ error: "No voice actor configured." });
+  const args = [String(q.room ?? "").toLowerCase(), String(q.player ?? ""), String(q.character ?? ""), Number(q.n)] as const;
+  const found = rooms.voiceLine(...args, false);
+  if (!found.ok) return reply.code(found.status).send({ error: found.error });
+
+  reply.header("content-type", "audio/mpeg").header("cache-control", "private, max-age=3600");
+  const cached = voiceCache.get(found.key);
+  if (cached) return reply.send(cached);
+  if (synthesizing >= 3) return reply.code(429).send({ error: "Voice lines are busy." });
+  const charged = rooms.voiceLine(...args, true);
+  if (!charged.ok) return reply.code(charged.status).send({ error: charged.error });
+
+  synthesizing += 1;
+  try {
+    const body = Readable.fromWeb((await tts.synthesize(performance(found.reply, found.delivery), found.voice)) as never);
+    const chunks: Buffer[] = [];
+    body.on("data", (c: Buffer) => chunks.push(c));
+    body.on("end", () => {
+      voiceCache.set(found.key, Buffer.concat(chunks));
+      if (voiceCache.size > 300) voiceCache.delete(voiceCache.keys().next().value!);
+    });
+    body.on("close", () => (synthesizing -= 1));
+    return reply.send(body);
+  } catch (err) {
+    synthesizing -= 1;
+    req.log.error(err);
+    return reply.code(502).send({ error: "The voice dropped out." });
+  }
+});
 
 // Voice questions from browsers without built-in speech recognition. WAV in,
 // text out; the text goes back into the question box for the player to check.
@@ -113,5 +155,5 @@ setInterval(() => {
   for (const code of rooms.codes()) if (rooms.tick(code).length) broadcast(code);
 }, 5_000).unref();
 
-app.log.info(`LLM provider: ${llm.name}`);
+app.log.info(`LLM provider: ${llm.name}; voice: ${tts?.name ?? "browser"}`);
 await app.listen({ port: PORT, host: HOST });

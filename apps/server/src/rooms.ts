@@ -4,6 +4,7 @@ import {
   councilNeeded,
   createGame,
   itemVisible,
+  memoryOf,
   tick,
   viewFor,
   type Action,
@@ -22,6 +23,7 @@ export interface Room {
   asks: number[]; // timestamps of recent questions, for the per-minute limit
   askTotal: number;
   busy: Set<string>; // players waiting for an answer
+  ttsChars: number; // characters sent to speech synthesis
 }
 
 // Credit guard. A public link must not be able to burn the model budget.
@@ -30,6 +32,7 @@ export const LIMITS = {
   askPerRoom: Number(process.env.LIMIT_ASK_PER_ROOM ?? 400),
   concurrent: Number(process.env.LIMIT_CONCURRENT_ASKS ?? 12),
   rooms: Number(process.env.LIMIT_ROOMS ?? 200),
+  ttsCharsPerRoom: Number(process.env.LIMIT_TTS_CHARS_PER_ROOM ?? 9000),
   idleMs: Number(process.env.ROOM_IDLE_HOURS ?? 6) * 3_600_000,
 };
 
@@ -56,7 +59,7 @@ export class Rooms {
     let room = this.rooms.get(code);
     if (!room) {
       this.evict(now);
-      room = { code, pack: this.pack, state: createGame(this.pack), lastActive: now, asks: [], askTotal: 0, busy: new Set() };
+      room = { code, pack: this.pack, state: createGame(this.pack), lastActive: now, asks: [], askTotal: 0, busy: new Set(), ttsChars: 0 };
       this.rooms.set(code, room);
     }
     room.lastActive = now;
@@ -70,6 +73,34 @@ export class Rooms {
       const oldest = [...this.rooms.values()].sort((a, b) => a.lastActive - b.lastActive)[0]!;
       this.rooms.delete(oldest.code);
     }
+  }
+
+  // Look up without creating: for read-only endpoints.
+  find(code: string): Room | undefined {
+    return this.rooms.get(code);
+  }
+
+  // A line a player may have voiced: said in this room, heard by this player,
+  // within the room's voice budget. Charges the budget when `charge` is set.
+  voiceLine(
+    code: string,
+    player: string,
+    character: string,
+    n: number,
+    charge: boolean,
+  ): { ok: true; key: string; reply: string; delivery?: string; voice: string } | { ok: false; status: number; error: string } {
+    const room = this.rooms.get(code);
+    const who = room?.pack.characters.find((c) => c.id === character);
+    const line = room && who && Number.isInteger(n) ? memoryOf(room.state, who.id).history[n] : undefined;
+    if (!room || !who || !line || !room.state.players.some((p) => p.id === player)) return { ok: false, status: 404, error: "No such line." };
+    if (line.audience !== "all" && !line.audience.includes(player)) return { ok: false, status: 404, error: "No such line." };
+    if (!who.voice.elevenlabs) return { ok: false, status: 404, error: "This character has no voice." };
+    if (charge) {
+      const cost = line.reply.length + (line.delivery?.length ?? 0);
+      if (room.ttsChars + cost > LIMITS.ttsCharsPerRoom) return { ok: false, status: 429, error: "Voice budget used up for this room." };
+      room.ttsChars += cost;
+    }
+    return { ok: true, key: `${code}:${who.id}:${n}`, reply: line.reply, delivery: line.delivery, voice: who.voice.elevenlabs };
   }
 
   codes(): string[] {

@@ -91,11 +91,12 @@ export function characterMessages(ctx: ReplyContext): ChatMessage[] {
     "",
     "If asked something not covered above, say you don't know, don't remember, or don't want to talk about it — in character.",
     "Answer in 1–3 short spoken sentences.",
-    'Reply with JSON only: {"reply": "what you say", "used": ["ids of the lines above you relied on"]}',
+    'Also give "delivery": one to three plain words on how you say it this time, as an actor would (e.g. "nervous", "quietly, hurt", "offended", "tired").',
+    'Reply with JSON only: {"reply": "what you say", "delivery": "how you say it", "used": ["ids of the lines above you relied on"]}',
   ];
   const history = ctx.memory.history.slice(-6).flatMap((h): ChatMessage[] => [
     { role: "user", content: h.question },
-    { role: "assistant", content: JSON.stringify({ reply: h.reply, used: [] }) },
+    { role: "assistant", content: JSON.stringify({ reply: h.reply, delivery: h.delivery ?? "", used: [] }) },
   ]);
   return [
     { role: "system", content: lines.filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n") },
@@ -104,7 +105,15 @@ export function characterMessages(ctx: ReplyContext): ChatMessage[] {
   ];
 }
 
-export type ReplyCheck = { ok: true; reply: string; used: string[] } | { ok: false; reason: string };
+export type ReplyCheck = { ok: true; reply: string; used: string[]; delivery: string } | { ok: false; reason: string };
+
+// A stage direction for the voice actor: a few plain words, nothing that could
+// smuggle text into the audio that the subtitle doesn't show.
+export function cleanDelivery(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const words = raw.toLowerCase().replace(/[^a-z ,-]/g, " ").split(/[\s,]+/).filter(Boolean).slice(0, 3);
+  return words.join(" ").slice(0, 32);
+}
 
 // The model may only lean on knowledge it was given for this turn.
 export function checkReply(raw: string, allowed: ReadonlySet<string>): ReplyCheck {
@@ -118,7 +127,7 @@ export function checkReply(raw: string, allowed: ReadonlySet<string>): ReplyChec
   const used = Array.isArray(json.used) ? json.used.filter((u): u is string => typeof u === "string") : [];
   const outside = used.filter((u) => !allowed.has(u));
   if (outside.length) return { ok: false, reason: `used locked knowledge: ${outside.join(", ")}` };
-  return { ok: true, reply: json.reply.trim(), used };
+  return { ok: true, reply: json.reply.trim(), used, delivery: cleanDelivery((json as { delivery?: unknown }).delivery) };
 }
 
 function extractJson(raw: string): string {

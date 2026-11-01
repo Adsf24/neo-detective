@@ -38,7 +38,8 @@ Measured live against the Meta Model API — 72 scripted turns including six pro
 - **Meta Muse models** (`muse-spark` via the Meta Model API) for question classification and character role-play.
 - TypeScript throughout: React + Vite client, Fastify + Socket.IO server, a pure game engine, and a Zod schema for case packs.
 - **Muse Image** (`muse-image-1.0`) for every scene, portrait and evidence photo; evidence details are drawn over the photos by the client, never by the image model.
-- **Muse Voice Transcribe** for spoken questions on browsers without built-in recognition (iPhone Safari, Firefox); Chrome uses its own instant recognition. Replies are voiced with the browser's speech synthesis.
+- **Muse Voice Transcribe** for spoken questions on browsers without built-in recognition (iPhone Safari, Firefox); Chrome uses its own instant recognition.
+- **Character voices**: with each reply Muse Spark also gives a one-to-three word delivery cue ("nervous", "offended"); **ElevenLabs** performs the line with that cue. The server voices only lines the player actually heard, within a per-room budget; without an ElevenLabs key the browser's speech synthesis is used.
 
 A case is data, not code: `cases/missing-original` holds the truth, timeline, characters and their contracts, items, director events, the evidence graph and the reconstruction. A validator checks every reference and every flag before a case can load.
 
@@ -55,7 +56,7 @@ Open `http://localhost:5173`, create a room, join from other devices on the same
 ```bash
 npm test                  # unit tests: engine, contracts, director, scoring, case validation
 npm run e2e               # Playwright: several players in one room, end to end
-docker build -t neo-detective . && docker run -p 8080:8080 --env-file .env neo-detective
+docker build -t neo-detective . && docker run -p 8080:8080 --env-file .env neo-detective   # add --env-file .env.local for ElevenLabs voices
 ```
 
 ## Layout

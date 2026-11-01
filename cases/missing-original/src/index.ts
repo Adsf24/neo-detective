@@ -536,7 +536,7 @@ export const missingOriginal: CasePackInput = {
       id: "marina",
       name: "Marina Cole",
       role: "Gallery administrator",
-      voice: { gender: "female", style: "even, polite, tired; gets more polite when nervous" },
+      voice: { gender: "female", style: "even, polite, tired; gets more polite when nervous", elevenlabs: "pFZP5JQG7iQjIQuC4Bku" },
       bio: "34. Administrator at Lumen Gallery for six years. Careful, courteous, overworked. Loves the gallery; the salary is small and the mortgage is not.",
       personality:
         "Speaks evenly in short sentences. When nervous she becomes more polite and starts citing how busy she is. Never rude back.",
@@ -662,7 +662,7 @@ export const missingOriginal: CasePackInput = {
       id: "oliver",
       name: "Oliver Vance",
       role: "Technician and catalogue photographer",
-      voice: { gender: "male", style: "direct, a little grumpy, precise" },
+      voice: { gender: "male", style: "direct, a little grumpy, precise", elevenlabs: "N2lVS1w4EtoT3dr4eOWO" },
       bio: "41. Shoots, lights and digitises for the gallery on contract, three years now. Trusts measurements more than people. Has been suspicious of Paul since Paul 'started fiddling with valuations'.",
       personality: "Blunt and exact. Volunteers detail about cameras and timings. Respects Marina but thinks she is overworked.",
       coverStory: [
@@ -725,7 +725,7 @@ export const missingOriginal: CasePackInput = {
       id: "paul",
       name: "Paul Grant",
       role: "Gallery owner",
-      voice: { gender: "male", style: "reserved, touchy, long-winded" },
+      voice: { gender: "male", style: "reserved, touchy, long-winded", elevenlabs: "JBFqnCBsd6RMkjVDRZzb" },
       bio: "58. Inherited the collection from his father. Proud, easily offended, hates being suspected.",
       personality: "Talks at length with digressions. Gets irritated when suspected but answers fully.",
       coverStory: [
