@@ -1,0 +1,16 @@
+# Render Blueprint: New → Blueprint → this repository.
+# Render asks for the two keys when the blueprint is created; they live only
+# in Render's environment, never in the repository or the browser.
+services:
+  - type: web
+    name: neo-detective
+    runtime: docker
+    plan: free # "starter" keeps it awake for a live demo
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: LLAMA_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false

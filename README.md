@@ -59,6 +59,8 @@ npm run e2e               # Playwright: several players in one room, end to end
 docker build -t neo-detective . && docker run -p 8080:8080 --env-file .env neo-detective   # add --env-file .env.local for ElevenLabs voices
 ```
 
+Hosted: `render.yaml` is a Render Blueprint (New → Blueprint → this repository); Render asks for `LLAMA_API_KEY` and `ELEVENLABS_API_KEY` and keeps them server-side.
+
 ## Layout
 
 | Path | What |
