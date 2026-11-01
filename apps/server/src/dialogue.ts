@@ -72,10 +72,10 @@ export async function ask(pack: CasePack, state: GameState, llm: LlmProvider, in
     draftPlan.kind === "reply" &&
     draftPlan.active.map((k) => k.id).join() === plan.active.map((k) => k.id).join() &&
     draftPlan.presented.join() === plan.presented.join();
-  const text = (sameKnowledge && draft ? await draft.catch(() => undefined) : undefined) ?? (await roleplay(plan.active, plan.newly, plan.presented, state));
+  const spoken = (sameKnowledge && draft ? await draft.catch(() => undefined) : undefined) ?? (await roleplay(plan.active, plan.newly, plan.presented, state));
 
-  recordReply(state, character.id, asker.id, said, text, audience, now);
-  return { ok: true, kind: "reply", text, newly: plan.newly.map((k) => k.id) };
+  recordReply(state, character.id, asker.id, said, spoken.text, audience, now, spoken.delivery);
+  return { ok: true, kind: "reply", text: spoken.text, newly: plan.newly.map((k) => k.id) };
 }
 
 const keywords = new ScriptedProvider();
@@ -88,24 +88,29 @@ async function keywordClassification(character: Character, question: string) {
 // admitted, so such knowledge must really be said: a reply that dodges it is
 // retried, and if the model keeps dodging the line is appended verbatim.
 // "Admitted" in the state therefore always means "the players heard it".
-async function speak(llm: LlmProvider, ctx: Parameters<typeof characterMessages>[0], newly: Knowledge[]): Promise<string> {
+interface Spoken {
+  text: string;
+  delivery: string;
+}
+
+async function speak(llm: LlmProvider, ctx: Parameters<typeof characterMessages>[0], newly: Knowledge[]): Promise<Spoken> {
   const mustSay = newly.filter((k) => k.setsFlags.length > 0);
   const messages = characterMessages({ ...ctx, mustSay: mustSay.map((k) => k.id) });
   const allowed = new Set(ctx.active.map((k) => k.id));
-  let dodged: string | undefined;
+  let dodged: Spoken | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const check = checkReply(await llm.complete({ tier: "strong", messages, json: true, maxTokens: 220 }), allowed);
       if (!check.ok) continue;
       const missing = mustSay.filter((k) => !check.used.includes(k.id));
-      if (missing.length === 0) return check.reply;
-      dodged = `${check.reply} ${missing.map((k) => k.says).join(" ")}`;
+      if (missing.length === 0) return { text: check.reply, delivery: check.delivery };
+      dodged = { text: `${check.reply} ${missing.map((k) => k.says).join(" ")}`, delivery: check.delivery };
     } catch {
       // Network or model error: try once more, then fall back.
     }
   }
   if (dodged) return dodged;
   // Safe fallback: what must be said verbatim, else the newest line, else a non-answer.
-  if (mustSay.length) return mustSay.map((k) => k.says).join(" ");
-  return newly[newly.length - 1]?.says ?? "I've told you what I know.";
+  if (mustSay.length) return { text: mustSay.map((k) => k.says).join(" "), delivery: "" };
+  return { text: newly[newly.length - 1]?.says ?? "I've told you what I know.", delivery: "" };
 }

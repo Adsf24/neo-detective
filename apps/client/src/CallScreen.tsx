@@ -2,7 +2,7 @@ import type { ContactView, ItemView, PlayerView } from "@neo/engine";
 import { useEffect, useRef, useState } from "react";
 import { buzz, flash, play } from "./fx";
 import { Icon } from "./Icons";
-import { canListen, canRecord, canSpeak, listen, recordWav, speak, stopSpeaking, transcribe } from "./voice";
+import { canListen, canRecord, canSpeak, listen, playLine, recordWav, speak, stopSpeaking, transcribe, unlockActor } from "./voice";
 import type { AskResult } from "../../server/src/protocol";
 
 interface Props {
@@ -42,7 +42,11 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     spoken.current = lines.length;
     const mine = fresh.filter((l) => l.asker === view.me.id);
     const last = mine[mine.length - 1];
-    if (last && !muted && contact.channel === "voice") speak(last.reply, contact.voice, contact.id);
+    if (!last || muted || contact.channel !== "voice") return;
+    const room = new URLSearchParams(window.location.search).get("room");
+    const fallback = () => speak(last.reply, contact.voice, contact.id);
+    if (!contact.voice.elevenlabs || !room) return fallback();
+    void playLine({ room, player: view.me.id, character: contact.id, n: last.n }).then((ok) => ok || fallback());
   }, [lines, view.me.id, muted, contact]);
 
   useEffect(() => () => stopSpeaking(), []);
@@ -56,6 +60,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
 
   const send = async () => {
     if (!question.trim() && presenting.length === 0) return;
+    if (!muted) unlockActor();
     setWaiting(true);
     setError(null);
     setNotice(null);
@@ -220,7 +225,7 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
         <label className="small muted toggle">
           <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} /> Speakerphone — the whole team hears
         </label>
-        {contact.channel === "voice" && canSpeak() && (
+        {contact.channel === "voice" && (canSpeak() || contact.voice.elevenlabs) && (
           <label className="small muted toggle">
             <input type="checkbox" checked={!muted} onChange={(e) => setMuted(!e.target.checked)} /> Play {contact.name.split(" ")[0]}'s voice on this phone
           </label>

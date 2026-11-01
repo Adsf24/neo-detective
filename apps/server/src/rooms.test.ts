@@ -16,6 +16,21 @@ async function startedRoom() {
 }
 
 describe("Rooms", () => {
+  it("voices a line only for a player who heard it, within the room's budget", async () => {
+    const rooms = await startedRoom();
+    await rooms.ask("r", "a", { character: "paul", question: "Who are you?", presented: [], shared: false }, T0);
+    await rooms.ask("r", "b", { character: "paul", question: "Where were you?", presented: [], shared: true }, T0);
+    expect(rooms.voiceLine("r", "a", "paul", 0, false)).toMatchObject({ ok: true, key: "r:paul:0", voice: expect.any(String) });
+    expect(rooms.voiceLine("r", "b", "paul", 0, false)).toMatchObject({ ok: false, status: 404 }); // a private call
+    expect(rooms.voiceLine("r", "c", "paul", 1, false)).toMatchObject({ ok: true }); // on speaker
+    expect(rooms.voiceLine("r", "stranger", "paul", 1, false)).toMatchObject({ ok: false, status: 404 });
+    expect(rooms.voiceLine("r", "a", "paul", 7, false)).toMatchObject({ ok: false, status: 404 });
+    expect(rooms.voiceLine("nope", "a", "paul", 0, false)).toMatchObject({ ok: false, status: 404 });
+
+    rooms.get("r").ttsChars = 1e9;
+    expect(rooms.voiceLine("r", "a", "paul", 0, true)).toMatchObject({ ok: false, status: 429 });
+  });
+
   it("keeps games separate per room code", async () => {
     const rooms = new Rooms(pack, new ScriptedProvider());
     await rooms.act("one", { type: "join", player: "a", name: "Ann" });

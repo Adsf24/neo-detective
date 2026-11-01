@@ -148,7 +148,11 @@ export const CharacterSchema = z.object({
   id: Id,
   name: z.string(),
   role: z.string(),
-  voice: z.object({ gender: z.enum(["female", "male"]), style: z.string() }),
+  voice: z.object({
+    gender: z.enum(["female", "male"]),
+    style: z.string(),
+    elevenlabs: z.string().optional(), // ElevenLabs voice id for synthesized speech
+  }),
   bio: z.string(),
   personality: z.string(),
   coverStory: z.array(z.string()).min(1), // always available to the LLM

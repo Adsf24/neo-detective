@@ -11,7 +11,7 @@ export interface CharacterMemory {
   admitted: Set<string>; // knowledge entries already said
   pressure: number;
   cooldownUntil: number;
-  history: { asker: string; question: string; reply: string; at: number; audience: "all" | string[] }[];
+  history: { asker: string; question: string; reply: string; at: number; audience: "all" | string[]; delivery?: string }[];
 }
 
 export function memoryOf(state: GameState, character: string): CharacterMemory {
@@ -111,7 +111,8 @@ export function recordReply(
   reply: string,
   audience: "all" | string[],
   now: number,
+  delivery?: string,
 ) {
-  memoryOf(state, character).history.push({ asker, question, reply, at: now, audience });
+  memoryOf(state, character).history.push({ asker, question, reply, at: now, audience, delivery });
   state.log.push({ at: now, player: asker, type: "ask", detail: { character, question } });
 }

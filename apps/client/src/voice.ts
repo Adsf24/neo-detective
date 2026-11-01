@@ -87,8 +87,62 @@ export function speak(text: string, voice: { gender: "female" | "male" }, seed: 
   speechSynthesis.speak(u);
 }
 
+// ---------- Voice actor (server-side synthesis) ----------
+// The server voices a line only if this player heard it. One shared <audio>
+// element, unlocked on the Ask tap, so iPhone Safari lets it play later.
+
+let actor: HTMLAudioElement | undefined;
+
+export function unlockActor() {
+  if (typeof Audio === "undefined") return;
+  if (!actor) actor = new Audio();
+  // A silent play inside the user gesture unlocks autoplay for this element.
+  actor.src = silence();
+  void actor.play().catch(() => undefined);
+}
+
+// 50 ms of silent 8 kHz mono WAV.
+function silence(): string {
+  const samples = 400;
+  const buf = new DataView(new ArrayBuffer(44 + samples));
+  const text = (o: number, s: string) => [...s].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)));
+  text(0, "RIFF");
+  buf.setUint32(4, 36 + samples, true);
+  text(8, "WAVEfmt ");
+  buf.setUint32(16, 16, true);
+  buf.setUint16(20, 1, true); // PCM
+  buf.setUint16(22, 1, true); // mono
+  buf.setUint32(24, 8000, true);
+  buf.setUint32(28, 8000, true);
+  buf.setUint16(32, 1, true);
+  buf.setUint16(34, 8, true);
+  text(36, "data");
+  buf.setUint32(40, samples, true);
+  for (let i = 0; i < samples; i++) buf.setUint8(44 + i, 128); // 8-bit silence is mid-scale
+  let bin = "";
+  new Uint8Array(buf.buffer).forEach((b) => (bin += String.fromCharCode(b)));
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
+// Plays the actor's take; resolves false if there is none, so the caller can
+// fall back to the browser's own voice.
+export async function playLine(params: { room: string; player: string; character: string; n: number }): Promise<boolean> {
+  if (typeof Audio === "undefined") return false;
+  if (!actor) actor = new Audio();
+  const q = new URLSearchParams({ ...params, n: String(params.n) });
+  stopSpeaking();
+  actor.src = `/api/voice?${q}`;
+  try {
+    await actor.play();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function stopSpeaking() {
   if (canSpeak()) speechSynthesis.cancel();
+  actor?.pause();
 }
 
 // ---------- Recording for Muse Voice Transcribe ----------
