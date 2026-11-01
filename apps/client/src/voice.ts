@@ -14,6 +14,7 @@ interface Recognition {
   onerror: ((e: { error: string }) => void) | null;
   start(): void;
   stop(): void;
+  abort(): void;
 }
 
 type RecognitionCtor = new () => Recognition;
@@ -26,8 +27,8 @@ function recognitionCtor(): RecognitionCtor | undefined {
 export const canListen = () => typeof window !== "undefined" && !!recognitionCtor();
 export const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window;
 
-// Push to talk: start on press, stop on release. Interim text streams into
-// `onText`; the player still reviews it before sending.
+// One utterance: the browser ends it on a pause. Interim text streams into
+// `onText`; `onEnd` fires once recognition stops.
 export function listen(onText: (text: string, final: boolean) => void, onEnd: () => void, onError: (msg: string) => void) {
   const Ctor = recognitionCtor();
   if (!Ctor) {
@@ -37,7 +38,7 @@ export function listen(onText: (text: string, final: boolean) => void, onEnd: ()
   const rec = new Ctor();
   rec.lang = "en-US";
   rec.interimResults = true;
-  rec.continuous = true;
+  rec.continuous = false;
   rec.onresult = (e) => {
     let text = "";
     let final = true;
@@ -52,7 +53,7 @@ export function listen(onText: (text: string, final: boolean) => void, onEnd: ()
   };
   rec.onend = onEnd;
   rec.start();
-  return () => rec.stop();
+  return () => rec.abort();
 }
 
 // System voice names differ per OS and browser; match the common ones.
@@ -71,8 +72,8 @@ function pickVoice(gender: "female" | "male", seed: string): SpeechSynthesisVoic
   return pool[hash % pool.length];
 }
 
-export function speak(text: string, voice: { gender: "female" | "male" }, seed: string) {
-  if (!canSpeak()) return;
+export function speak(text: string, voice: { gender: "female" | "male" }, seed: string, onDone?: () => void) {
+  if (!canSpeak()) return onDone?.();
   const u = new SpeechSynthesisUtterance(text.replace(/\(([^)]*)\)/g, "")); // stage directions stay silent
   const v = pickVoice(voice.gender, seed);
   if (v) u.voice = v;
@@ -83,6 +84,7 @@ export function speak(text: string, voice: { gender: "female" | "male" }, seed: 
   const base = v ? 0.9 : voice.gender === "male" ? 0.62 : 1.15;
   u.pitch = base + (hash % 20) / 100;
   u.rate = 0.95 + (hash % 10) / 100;
+  u.onend = u.onerror = () => onDone?.();
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
@@ -125,19 +127,29 @@ function silence(): string {
 }
 
 // Plays the actor's take; resolves false if there is none, so the caller can
-// fall back to the browser's own voice.
-export async function playLine(params: { room: string; player: string; character: string; n: number }): Promise<boolean> {
+// fall back to the browser's own voice. `onDone` fires when the take ends.
+export async function playLine(params: { room: string; player: string; character: string; n: number }, onDone?: () => void): Promise<boolean> {
   if (typeof Audio === "undefined") return false;
   if (!actor) actor = new Audio();
+  const el = actor;
   const q = new URLSearchParams({ ...params, n: String(params.n) });
   stopSpeaking();
-  actor.src = `/api/voice?${q}`;
+  el.src = `/api/voice?${q}`;
   try {
-    await actor.play();
-    return true;
+    await el.play();
   } catch {
     return false;
   }
+  const done = () => {
+    el.removeEventListener("ended", done);
+    el.removeEventListener("pause", done);
+    el.removeEventListener("error", done);
+    onDone?.();
+  };
+  el.addEventListener("ended", done);
+  el.addEventListener("pause", done);
+  el.addEventListener("error", done);
+  return true;
 }
 
 export function stopSpeaking() {
@@ -153,7 +165,11 @@ export function stopSpeaking() {
 export const canRecord = () =>
   typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
 
-export async function recordWav(): Promise<{ stop: () => Promise<Blob> }> {
+// With `onPause`, the recorder detects the end of a spoken phrase itself:
+// speech is anything well above the room's noise floor, and the phrase ends
+// after ~0.9 s of quiet (or 20 s in all). Before anyone speaks only the last
+// half second is kept, so waiting costs nothing.
+export async function recordWav(onPause?: () => void): Promise<{ stop: () => Promise<Blob> }> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   const ctx = new Ctor();
@@ -161,7 +177,19 @@ export async function recordWav(): Promise<{ stop: () => Promise<Blob> }> {
   // ScriptProcessor is deprecated but is the one capture path every browser still has.
   const node = ctx.createScriptProcessor(4096, 1, 1);
   const chunks: Float32Array[] = [];
-  node.onaudioprocess = (e) => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  const phrase = phraseDetector(ctx.sampleRate);
+  let paused = false;
+  node.onaudioprocess = (e) => {
+    const data = new Float32Array(e.inputBuffer.getChannelData(0));
+    chunks.push(data);
+    if (!onPause || paused) return;
+    const state = phrase(data);
+    if (state === "waiting" && chunks.length > Math.ceil((0.5 * ctx.sampleRate) / data.length)) chunks.shift();
+    if (state === "ended") {
+      paused = true;
+      onPause();
+    }
+  };
   source.connect(node);
   node.connect(ctx.destination);
 
@@ -174,6 +202,36 @@ export async function recordWav(): Promise<{ stop: () => Promise<Blob> }> {
       await ctx.close();
       return encodeWav(downsample(concat(chunks), rate, 16_000), 16_000);
     },
+  };
+}
+
+// Feed it audio chunks; it says whether a phrase hasn't started, is under way,
+// or has just ended. Speech is anything well above the noise floor measured on
+// the first few chunks.
+export function phraseDetector(sampleRate: number) {
+  let floor = 0;
+  let calibrated = 0;
+  let speechMs = 0;
+  let loudMs = 0;
+  let quietMs = 0;
+  return (chunk: Float32Array): "waiting" | "speaking" | "ended" => {
+    const ms = (chunk.length / sampleRate) * 1000;
+    const rms = Math.sqrt(chunk.reduce((s, x) => s + x * x, 0) / chunk.length);
+    if (calibrated < 300) {
+      calibrated += ms;
+      floor = Math.max(floor, rms);
+      return "waiting";
+    }
+    const loud = rms > Math.max(0.02, floor * 3);
+    if (speechMs === 0 && !loud) return "waiting";
+    speechMs += ms;
+    loudMs += loud ? ms : 0;
+    quietMs = loud ? 0 : quietMs + ms;
+    if (speechMs > 20_000) return "ended";
+    if (quietMs <= 900) return "speaking";
+    if (loudMs > 250) return "ended";
+    speechMs = loudMs = quietMs = 0; // a click or a cough, not a phrase
+    return "waiting";
   };
 }
 

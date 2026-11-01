@@ -27,8 +27,11 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
   const end = useRef<HTMLDivElement>(null);
   const [listening, setListening] = useState(false);
   const [muted, setMuted] = useState(false);
-  const stopListening = useRef<(() => void) | null>(null);
-  const recorder = useRef<Promise<{ stop: () => Promise<Blob> }> | null>(null);
+  // Hands-free call: listen, send when the phrase ends, stay quiet while the
+  // witness answers, listen again.
+  const [talk, setTalk] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const cancelListening = useRef<(() => void) | null>(null);
   const [transcribing, setTranscribing] = useState(false);
   // Chrome recognises speech itself, instantly; elsewhere the recording goes
   // to Muse Voice Transcribe through the server.
@@ -43,10 +46,19 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     const mine = fresh.filter((l) => l.asker === view.me.id);
     const last = mine[mine.length - 1];
     if (!last || muted || contact.channel !== "voice") return;
+    // The witness has the floor: never let the microphone hear her.
+    cancelListening.current?.();
+    setPlaying(true);
+    // Some browsers never report the end of speech; don't let the call stall.
+    const guard = setTimeout(() => setPlaying(false), 4000 + last.reply.length * 90);
+    const done = () => {
+      clearTimeout(guard);
+      setPlaying(false);
+    };
     const room = new URLSearchParams(window.location.search).get("room");
-    const fallback = () => speak(last.reply, contact.voice, contact.id);
+    const fallback = () => speak(last.reply, contact.voice, contact.id, done);
     if (!contact.voice.elevenlabs || !room) return fallback();
-    void playLine({ room, player: view.me.id, character: contact.id, n: last.n }).then((ok) => ok || fallback());
+    void playLine({ room, player: view.me.id, character: contact.id, n: last.n }, done).then((ok) => ok || fallback());
   }, [lines, view.me.id, muted, contact]);
 
   useEffect(() => () => stopSpeaking(), []);
@@ -58,13 +70,14 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
   // Evidence can come from the Board or from anything this player can see.
   const presentable = view.items;
 
-  const send = async () => {
-    if (!question.trim() && presenting.length === 0) return;
-    if (!muted) unlockActor();
+  const send = async (spokenText?: string) => {
+    const text = spokenText ?? question;
+    if (!text.trim() && presenting.length === 0) return;
+    if (!muted && spokenText === undefined) unlockActor();
     setWaiting(true);
     setError(null);
     setNotice(null);
-    const res = await ask({ character: contact.id, question, presented: presenting, shared });
+    const res = await ask({ character: contact.id, question: text, presented: presenting, shared });
     setWaiting(false);
     if (!res.ok) return setError(res.error);
     if (res.kind === "council") setNotice(res.text);
@@ -82,6 +95,75 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
     setQuestion("");
     setPresenting([]);
   };
+
+  // Speech callbacks outlive the render that created them.
+  const sendLatest = useRef(send);
+  sendLatest.current = send;
+
+  // One spoken phrase, sent as soon as it ends.
+  const listenOnce = () => {
+    let cancelled = false;
+    setListening(true);
+    setError(null);
+    if (voiceMode === "browser") {
+      let heard = "";
+      const abort = listen(
+        (text) => {
+          heard = text;
+          setQuestion(text);
+        },
+        () => {
+          setListening(false);
+          if (!cancelled && heard.trim()) void sendLatest.current(heard);
+        },
+        (msg) => {
+          setError(msg);
+          setTalk(false);
+        },
+      );
+      cancelListening.current = () => {
+        cancelled = true;
+        cancelListening.current = null;
+        abort();
+      };
+      return;
+    }
+    const finish = (transcribeIt: boolean) => {
+      cancelListening.current = null;
+      setListening(false);
+      const stopped = recording.then((r) => r.stop());
+      if (!transcribeIt) return void stopped.catch(() => undefined);
+      setTranscribing(true);
+      void stopped
+        .then(transcribe)
+        .then((text) => {
+          if (text.trim()) {
+            setQuestion(text);
+            void sendLatest.current(text);
+          }
+        })
+        .catch((err: Error) => setError(err.message))
+        .finally(() => setTranscribing(false));
+    };
+    const recording = recordWav(() => !cancelled && finish(true));
+    recording.catch(() => {
+      setListening(false);
+      setTalk(false);
+      setError("Microphone access was refused. Type instead.");
+    });
+    cancelListening.current = () => {
+      cancelled = true;
+      finish(false);
+    };
+  };
+
+  useEffect(() => {
+    if (!talk || waiting || playing || listening || transcribing) return;
+    const t = setTimeout(listenOnce, 400);
+    return () => clearTimeout(t);
+  });
+
+  useEffect(() => () => cancelListening.current?.(), []);
 
   return (
     <div className="app call">
@@ -162,8 +244,17 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
             ))}
           </ul>
         )}
-        {listening && <p className="small notice">Listening… release to stop</p>}
-        {transcribing && <p className="small notice">Transcribing…</p>}
+        {talk && (
+          <p className="small notice" aria-live="polite">
+            {listening
+              ? "Listening — just speak. Tap the mic to stop."
+              : transcribing
+                ? "Catching your words…"
+                : waiting || playing
+                  ? `${contact.name.split(" ")[0]} is answering…`
+                  : "…"}
+          </p>
+        )}
         <form
           className="row"
           onSubmit={(e) => {
@@ -174,42 +265,19 @@ export function CallScreen({ contact, view, items, ask, onClose, playerName }: P
           {contact.channel === "voice" && voiceMode && (
             <button
               type="button"
-              aria-label="Hold to talk"
-              className={listening ? "mic on" : "mic"}
-              disabled={transcribing}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                stopSpeaking();
-                setListening(true);
-                if (voiceMode === "browser") {
-                  stopListening.current = listen(
-                    (text) => setQuestion(text),
-                    () => setListening(false),
-                    (msg) => setError(msg),
-                  );
-                } else {
-                  recorder.current = recordWav();
-                  recorder.current.catch(() => {
-                    setListening(false);
-                    setError("Microphone access was refused. Type instead.");
-                  });
-                  stopListening.current = () => {
-                    const pending = recorder.current;
-                    recorder.current = null;
-                    setListening(false);
-                    if (!pending) return;
-                    setTranscribing(true);
-                    void pending
-                      .then((r) => r.stop())
-                      .then(transcribe)
-                      .then((text) => setQuestion((q) => (q ? `${q} ${text}` : text)))
-                      .catch((err: Error) => setError(err.message))
-                      .finally(() => setTranscribing(false));
-                  };
+              aria-label={talk ? "End hands-free talk" : "Talk hands-free"}
+              aria-pressed={talk}
+              className={talk ? "mic on" : "mic"}
+              onClick={() => {
+                if (talk) {
+                  setTalk(false);
+                  cancelListening.current?.();
+                  return;
                 }
+                if (!muted) unlockActor();
+                stopSpeaking();
+                setTalk(true);
               }}
-              onPointerUp={() => stopListening.current?.()}
-              onPointerLeave={() => listening && stopListening.current?.()}
             >
               <Icon name="mic" />
             </button>
